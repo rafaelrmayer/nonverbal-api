@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from app.images import MAX_BYTES, decode_image, InvalidImage, ImageTooLarge
 from app.model_asset import MODEL_SHA256, verify_model
+from app import hand_model_asset as hand_asset
 from app.browser_assets import SDK_VERSION, RUNTIME_DIR, RUNTIME_FILES
 from app.pose import PoseEngine, InvalidModelResult
 from app.schemas import BodyResponse
@@ -43,7 +44,7 @@ app.mount('/demo-assets', StaticFiles(directory=DEMO_DIR), name='demo-assets')
 async def no_cache(request, call_next):
     response = await call_next(request)
     path = request.url.path
-    immutable = path.startswith('/browser-runtime/') or path.startswith('/mirror-model/')
+    immutable = path.startswith('/browser-runtime/') or path.startswith('/mirror-model/') or path.startswith('/mirror-hand-model/')
     response.headers['Cache-Control'] = 'public, max-age=31536000, immutable' if immutable and response.status_code == 200 else 'no-store'
     response.headers['X-Content-Type-Options'] = 'nosniff'
     mirror = path in {'/', '/mirror', '/demo-assets/mirror-worker.js'}
@@ -75,7 +76,9 @@ def mirror_config():
             'module_url': f'/browser-runtime/{SDK_VERSION}/vision_bundle.mjs',
             'wasm_root': f'/browser-runtime/{SDK_VERSION}',
             'model_url': f'/mirror-model/{MODEL_SHA256}.task',
-            'model_sha256': MODEL_SHA256}
+            'model_sha256': MODEL_SHA256,
+            'hand_model_url': f'/mirror-hand-model/{hand_asset.MODEL_SHA256}.task',
+            'hand_model_sha256': hand_asset.MODEL_SHA256}
 
 
 @app.get('/browser-runtime/{version}/{asset}', include_in_schema=False)
@@ -97,6 +100,17 @@ def mirror_model(checksum: str):
     except (OSError, ValueError):
         raise HTTPException(503, 'Asset do modelo local indisponível.')
     return FileResponse(path, media_type='application/octet-stream', headers={'ETag': '"'+MODEL_SHA256+'"'})
+
+
+@app.get('/mirror-hand-model/{checksum}.task', include_in_schema=False)
+def mirror_hand_model(checksum: str):
+    if checksum != hand_asset.MODEL_SHA256:
+        raise HTTPException(404, 'Modelo não encontrado.')
+    try:
+        path = hand_asset.verify_model(os.environ.get('HAND_MODEL_PATH', 'models/hand_landmarker.task'))
+    except (OSError, ValueError):
+        raise HTTPException(503, 'Asset do modelo de mãos indisponível.')
+    return FileResponse(path, media_type='application/octet-stream', headers={'ETag': '"'+hand_asset.MODEL_SHA256+'"'})
 
 
 @app.get('/health', tags=['Health'])

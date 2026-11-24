@@ -37,13 +37,14 @@ test('real worker runs WASM on blank image, returns bitmap, and requests only sa
       const source=new OffscreenCanvas(320,240);const ctx=source.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,320,240);
       const bitmap=source.transferToImageBitmap();worker.postMessage({type:'frame',bitmap,timestamp:1},[bitmap]);
      }
-     if(data.type==='result'){const result={poses:data.poses,width:data.bitmap.width,height:data.bitmap.height};data.bitmap.close();clearTimeout(timer);worker.terminate();resolve(result);}
+     if(data.type==='result'){const result={poses:data.poses,hands:data.hands,width:data.bitmap.width,height:data.bitmap.height};data.bitmap.close();clearTimeout(timer);worker.terminate();resolve(result);}
     };worker.postMessage({type:'init',config});
    });
   });
-  assert.deepEqual(result,{poses:[],width:320,height:240});
+  assert.deepEqual(result,{poses:[],hands:[],width:320,height:240});
   assert.ok(requests.some(r=>r.url.includes('.wasm')));
   assert.ok(requests.some(r=>r.url.includes('/mirror-model/')));
+  assert.ok(requests.some(r=>r.url.includes('/mirror-hand-model/')));
   assert.ok(requests.every(r=>r.method==='GET'&&new URL(r.url).origin===origin));
   assert.deepEqual(errors,[]);
  }finally{await close();}
@@ -54,6 +55,7 @@ test('real local camera loop stops tracks, supports points-only, and never uploa
   await page.goto(origin);
   await page.locator('#mirrorModeTab').click();
   assert.ok(!requests.some(r=>r.url.includes('/mirror-model/')));
+  await page.getByLabel('Detalhar mãos e dedos',{exact:true}).uncheck();
   await page.getByRole('button',{name:'Iniciar espelho',exact:true}).click();
   await page.waitForFunction(()=>!document.getElementById('mirrorCanvas').hidden,{},{timeout:90000});
   assert.equal(await page.locator('#mirrorVideo').evaluate(v=>v.srcObject.getAudioTracks().length),0);
@@ -64,6 +66,7 @@ test('real local camera loop stops tracks, supports points-only, and never uploa
   assert.equal(await page.evaluate(()=>window.tracks.every(t=>t.readyState==='ended')),true);
   assert.equal(await page.locator('#mirrorCanvas').isHidden(),true);
   const count=requests.length;await delay(400);assert.equal(requests.length,count);
+  assert.ok(!requests.some(r=>r.url.includes('/mirror-hand-model/')));
   assert.ok(requests.every(r=>r.method==='GET'&&new URL(r.url).origin===origin));assert.deepEqual(errors,[]);
  }finally{await close();}
 });
@@ -158,5 +161,41 @@ test('switching mode cancels a pending photo permission',async()=>{
   assert.equal(await page.locator('#cameraVideo').evaluate(v=>v.srcObject),null);
   assert.equal(await page.locator('#mirrorVideo').evaluate(v=>v.srcObject),null);
   assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('two-finger shape closes a triangle; option and lost detection clear it',async()=>{
+ const {page,requests,errors,close}=await setup(()=>{
+  const hand=Array.from({length:21},(_,id)=>({id,x:.5,y:.6}));
+  const coordinates={0:[.5,.85],5:[.42,.6],6:[.38,.4],8:[.28,.15],9:[.5,.58],10:[.56,.38],12:[.68,.15],14:[.59,.5],16:[.57,.7],17:[.65,.65],18:[.68,.57],20:[.63,.75]};
+  for(const [id,[x,y]]of Object.entries(coordinates))Object.assign(hand[id],{x,y});
+  window.Worker=class{
+   constructor(){this.active=true;}
+   postMessage(data){
+    if(data.type==='init')setTimeout(()=>{if(this.active)this.onmessage({data:{type:'ready'}});},10);
+    if(data.type==='frame')setTimeout(()=>{if(this.active)this.onmessage({data:{type:'result',poses:[],hands:window.noHand?[]:[hand],bitmap:data.bitmap}});else data.bitmap.close();},10);
+   }
+   terminate(){this.active=false;}
+  };
+ });
+ try{
+  await page.getByLabel('Só pontinhos',{exact:true}).check();
+  await page.getByRole('button',{name:'Iniciar espelho',exact:true}).click();
+  const yellowAtBridge=()=>{
+   const c=document.getElementById('mirrorCanvas');if(c.hidden)return false;
+   const pixel=c.getContext('2d').getImageData(Math.round(c.width*.48),Math.round(c.height*.15),1,1).data;
+   return pixel[0]>230&&pixel[1]>170&&pixel[1]<225&&pixel[2]<60;
+  };
+  await page.waitForFunction(yellowAtBridge);
+  await page.getByLabel('Fechar triângulo com dois dedos',{exact:true}).uncheck();
+  assert.equal(await page.evaluate(yellowAtBridge),false);
+  await page.getByLabel('Fechar triângulo com dois dedos',{exact:true}).check();
+  await page.waitForFunction(yellowAtBridge);
+  await page.evaluate(()=>{window.noHand=true;});
+  await page.waitForFunction(()=>{
+   const c=document.getElementById('mirrorCanvas');const p=c.getContext('2d').getImageData(Math.round(c.width*.48),Math.round(c.height*.15),1,1).data;
+   return p[0]===16&&p[1]===28&&p[2]===50;
+  });
+  assert.ok(requests.every(r=>r.method==='GET'&&new URL(r.url).origin===origin));assert.deepEqual(errors,[]);
  }finally{await close();}
 });

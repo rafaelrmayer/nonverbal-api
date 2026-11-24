@@ -1,8 +1,8 @@
-import {EDGES,frameSize} from './mirror-core.mjs';
+import {EDGES,HAND_EDGES,fingerTriangle,frameSize} from './mirror-core.mjs';
 const el=id=>document.getElementById(id);
 const video=el('mirrorVideo'),canvas=el('mirrorCanvas'),ctx=canvas.getContext('2d');
 const lastFrame=document.createElement('canvas'),lastCtx=lastFrame.getContext('2d');
-let generation=0,worker,stream,timer,prepareTimer,frameTimer,rejectInit,abort,poses=[],lastTime=-1;
+let generation=0,worker,stream,timer,prepareTimer,frameTimer,rejectInit,abort,poses=[],hands=[],lastTime=-1;
 function status(text){if(el('mirrorStatus').textContent!==text)el('mirrorStatus').textContent=text;}
 export function stopMirror(message='Câmera desligada.') {
   generation++;
@@ -12,21 +12,32 @@ export function stopMirror(message='Câmera desligada.') {
   worker?.terminate();worker=null;
   stream?.getTracks().forEach(track=>track.stop());stream=null;
   video.pause();video.srcObject=null;
-  poses=[];lastTime=-1;canvas.width=1;canvas.height=1;lastFrame.width=1;lastFrame.height=1;
+  poses=[];hands=[];lastTime=-1;canvas.width=1;canvas.height=1;lastFrame.width=1;lastFrame.height=1;
   canvas.hidden=true;el('mirrorPlaceholder').hidden=false;
-  el('startMirror').disabled=false;el('stopMirror').disabled=true;el('facing').disabled=false;
+  el('startMirror').disabled=false;el('stopMirror').disabled=true;el('facing').disabled=false;el('detailHands').disabled=false;
   status(message);
 }
 function fail(message){stopMirror(message);el('mirrorError').textContent=message;el('mirrorError').hidden=false;}
+function drawPoints(points,edges,color){
+  const byId=new Map(points.map(p=>[p.id,p]));
+  ctx.strokeStyle=color;ctx.lineWidth=Math.max(2,canvas.width/180);ctx.lineCap='round';
+  for(const [a,b]of edges){const p=byId.get(a),q=byId.get(b);if(!p||!q)continue;ctx.beginPath();ctx.moveTo(p.x*canvas.width,p.y*canvas.height);ctx.lineTo(q.x*canvas.width,q.y*canvas.height);ctx.stroke();}
+  for(const p of points){ctx.beginPath();ctx.arc(p.x*canvas.width,p.y*canvas.height,Math.max(3,canvas.width/130),0,2*Math.PI);ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#101c32';ctx.lineWidth=1;ctx.stroke();}
+}
 function draw(){
   if(canvas.hidden)return;
   ctx.fillStyle='#101c32';ctx.fillRect(0,0,canvas.width,canvas.height);
   if(!el('onlyPoints').checked)ctx.drawImage(lastFrame,0,0);
-  poses.forEach((points,index)=>{
-    const color=index===0?'#67e8f9':'#facc15';const byId=new Map(points.map(p=>[p.id,p]));
-    ctx.strokeStyle=color;ctx.lineWidth=Math.max(2,canvas.width/180);ctx.lineCap='round';
-    for(const [a,b]of EDGES){const p=byId.get(a),q=byId.get(b);if(!p||!q)continue;ctx.beginPath();ctx.moveTo(p.x*canvas.width,p.y*canvas.height);ctx.lineTo(q.x*canvas.width,q.y*canvas.height);ctx.stroke();}
-    for(const p of points){ctx.beginPath();ctx.arc(p.x*canvas.width,p.y*canvas.height,Math.max(3,canvas.width/130),0,2*Math.PI);ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#101c32';ctx.lineWidth=1;ctx.stroke();}
+  poses.forEach((points,index)=>drawPoints(points,EDGES,index===0?'#67e8f9':'#facc15'));
+  hands.forEach(points=>{
+    drawPoints(points,HAND_EDGES,'#f9a8d4');
+    const triangle=el('handTriangles').checked?fingerTriangle(points,canvas.width,canvas.height):null;
+    if(!triangle)return;
+    const byId=new Map(points.map(p=>[p.id,p]));
+    ctx.beginPath();
+    triangle.forEach((id,index)=>{const p=byId.get(id);ctx[index===0?'moveTo':'lineTo'](p.x*canvas.width,p.y*canvas.height);});
+    ctx.closePath();ctx.fillStyle='rgba(250,204,21,0.15)';ctx.fill();
+    ctx.strokeStyle='#facc15';ctx.lineWidth=Math.max(3,canvas.width/150);ctx.stroke();
   });
 }
 async function nextFrame(token){
@@ -44,7 +55,7 @@ async function nextFrame(token){
 }
 el('startMirror').addEventListener('click',async()=>{
   stopMirror();const token=generation;el('mirrorError').hidden=true;
-  el('startMirror').disabled=true;el('stopMirror').disabled=false;el('facing').disabled=true;
+  el('startMirror').disabled=true;el('stopMirror').disabled=false;el('facing').disabled=true;el('detailHands').disabled=true;
   status('Preparando o modelo local… Na primeira vez, o download pode demorar.');
   try {
     if(!navigator.mediaDevices?.getUserMedia||!window.Worker||!window.createImageBitmap)throw new Error('unsupported');
@@ -59,18 +70,18 @@ el('startMirror').addEventListener('click',async()=>{
       worker.onmessage=({data})=>{
         if(token!==generation){data.bitmap?.close();return;}
         if(data.type==='ready'){rejectInit=null;resolve();}
-        if(data.type==='error'){reject(new Error('runtime'));fail('Não foi possível executar o modelo local. Tente novamente ou use a demonstração por foto.');}
+        if(data.type==='error'){reject(new Error('runtime'));fail(data.stage==='hands'?'Não foi possível carregar o detalhamento das mãos. Desmarque essa opção e tente novamente, ou confira a conexão.':'Não foi possível executar o modelo local. Tente novamente ou use a demonstração por foto.');}
         if(data.type==='result'){
           clearTimeout(frameTimer);
           const bitmap=data.bitmap;
           canvas.width=lastFrame.width=bitmap.width;canvas.height=lastFrame.height=bitmap.height;
-          lastCtx.drawImage(bitmap,0,0);bitmap.close();poses=data.poses;
+          lastCtx.drawImage(bitmap,0,0);bitmap.close();poses=data.poses;hands=data.hands??[];
           canvas.hidden=false;el('mirrorPlaceholder').hidden=true;draw();
-          status(poses.some(p=>p.length)?'Espelho ligado. Mexa-se no seu ritmo!':'Espelho ligado. Enquadre o corpo com boa iluminação.');
+          status(poses.some(p=>p.length)||hands.some(p=>p.length)?'Espelho ligado. Mexa-se no seu ritmo!':'Espelho ligado. Enquadre o corpo com boa iluminação.');
           timer=setTimeout(()=>nextFrame(token),125);
         }
       };
-      worker.postMessage({type:'init',config});
+      worker.postMessage({type:'init',config,hands:el('detailHands').checked});
     });
     clearTimeout(prepareTimer);if(token!==generation)return;
     status('Aguardando sua permissão para a câmera…');
@@ -84,6 +95,8 @@ el('startMirror').addEventListener('click',async()=>{
 });
 el('stopMirror').addEventListener('click',()=>stopMirror());
 el('onlyPoints').addEventListener('change',draw);
+el('handTriangles').addEventListener('change',draw);
+el('detailHands').addEventListener('change',()=>{el('handTriangles').disabled=!el('detailHands').checked;});
 el('flip').addEventListener('change',()=>canvas.classList.toggle('flipped',el('flip').checked));
 canvas.classList.add('flipped');
 document.addEventListener('visibilitychange',()=>{if(document.hidden)stopMirror('Câmera desligada ao sair da aba.');});

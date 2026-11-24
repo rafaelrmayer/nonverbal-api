@@ -37,6 +37,7 @@ jobs:
       - run: npm run test:demo
       - run: npm run prepare:mirror
       - run: python -m scripts.download_model
+      - run: python -m scripts.download_hand_model
       - run: python -m pip install fastapi==0.165.0 uvicorn==0.54.0 Pillow==12.3.0
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
