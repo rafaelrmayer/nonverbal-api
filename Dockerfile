@@ -1,3 +1,11 @@
+FROM node:24-bookworm-slim AS browser-assets
+WORKDIR /frontend
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts
+COPY scripts/prepare_browser_assets.mjs ./scripts/
+COPY licenses ./licenses
+RUN node scripts/prepare_browser_assets.mjs --output /browser-output
+
 FROM python:3.12-slim
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libegl1 libgles2 libglib2.0-0 \
@@ -6,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libegl1 
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir -r requirements.txt
 COPY --chown=appuser:appuser app ./app
+COPY --from=browser-assets --chown=appuser:appuser /browser-output ./app/browser-runtime
 COPY --chown=appuser:appuser scripts ./scripts
 RUN mkdir -p /app/models && chown appuser:appuser /app/models
 USER appuser
