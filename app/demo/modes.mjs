@@ -6,7 +6,7 @@ let active;
 function select(mode,{focus=false,updateURL=true}={}) {
   if(mode!==active){
     // Release both before displaying the next panel, including pending permissions/uploads.
-    releasePhoto();stopMirror();
+    if(active!==undefined){releasePhoto();stopMirror();}
     active=mode;
     for(const name of modes){
       const selected=name===mode;
