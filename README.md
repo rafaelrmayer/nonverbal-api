@@ -1,10 +1,10 @@
 # Nonverbal API
 
-**Autor:** Rafael Ricardo Mayer · **Versão:** 0.1.0 · **Estado:** protótipo corporal para revisão; ainda sem hospedagem ou publicação no marketplace.
+**Autor:** Rafael Ricardo Mayer · **Versão:** 0.1.0 · **Estado:** protótipo corporal hospedado no Render; ainda sem publicação no marketplace.
 
-API independente em Python/FastAPI para **descrever sinais corporais observáveis em uma imagem**, sem inferir emoção, intenção, atenção, personalidade ou condição clínica. Esta primeira versão não analisa rosto, voz, microexpressões ou vídeo e não interpreta automaticamente a comunicação de pessoas autistas.
+API independente em Python/FastAPI para **descrever sinais corporais observáveis em uma imagem**, sem inferir emoção, intenção, atenção, personalidade ou condição clínica. A API desta primeira versão não analisa rosto, voz, microexpressões ou vídeo e não interpreta automaticamente a comunicação de pessoas autistas.
 
-O repositório foi criado como público por decisão do responsável. Isso disponibiliza o código para consulta, mas não significa que exista um serviço público hospedado. Imagens de pessoas e pesos do modelo não são versionados.
+O repositório foi criado como público por decisão do responsável. Demonstração hospedada: https://nonverbal-api.onrender.com/. Imagens de pessoas e pesos do modelo não são versionados.
 
 ## O que funciona nesta versão
 
@@ -23,13 +23,20 @@ A página inicial do serviço oferece **câmera por captura** e **upload de imag
 
 Há controles para desligar a câmera, voltar à prévia e limpar os dados locais. Sair/ocultar a página também encerra a câmera. A captura precisa de HTTPS ou localhost. Não há gravação, envio contínuo, armazenamento no navegador ou nova interpretação de emoção/intenções.
 
-Consulte o [guia da demonstração](docs/DEMO.md) para limites, testes e verificação em dispositivo real. A página é servida pela própria API; não é necessário um site separado. O recurso está implementado no código, mas ainda depende da hospedagem do serviço para uma URL pública.
+Consulte o [guia da demonstração](docs/DEMO.md) para limites, testes e verificação em dispositivo real. A página é servida pela própria API; não é necessário um site separado. A captura e o upload já foram experimentados pelo responsável em dispositivo real.
+
+## Espelho de pontinhos no navegador
+
+A página `/mirror` oferece uma brincadeira visual com pontos e linhas acompanhando a câmera. O processamento acontece no dispositivo, em um worker WebAssembly, sem envio de frames ou áudio. Inclui opções de só pontinhos e imagem espelhada, até duas poses e botão para parar. O primeiro início baixa SDK e modelo do próprio site; velocidade e compatibilidade dependem do aparelho. Não interpreta comportamento.
+
+Este modo é separado da análise por foto e não adiciona vídeo ao contrato da API. Veja [preparação, privacidade e testes](docs/MIRROR.md). A câmera real do novo modo deve ser conferida após implantar esta alteração.
 
 ## Endpoints
 
 | Método | Caminho | Resultado |
 | --- | --- | --- |
 | GET | `/` | Demonstração com câmera por captura e upload de imagem. |
+| GET | `/mirror` | Espelho local com câmera, sem envio de frames. |
 | GET | `/health` | Estado do processo e `body_model_ready`. Health 200 não garante modelo disponível. |
 | GET | `/v1/models` | Modelo, hash, disponibilidade, recursos e canais não implementados. |
 | POST | `/v1/body/analyze` | Imagem → pontos corporais e observações geométricas. |
@@ -74,6 +81,9 @@ python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 python -m scripts.download_model
+# Para habilitar o espelho local (Node 24):
+npm ci
+npm run prepare:mirror
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
@@ -86,7 +96,7 @@ python -m scripts.smoke_model
 
 Os testes unitários usam pontos e imagens gerados em código e um detector injetado para testar contratos; **não medem acurácia do MediaPipe**. O smoke test separado carrega o modelo real em CPU e verifica `no_pose` numa imagem branca gerada localmente. O workflow tem jobs distintos para essas duas verificações.
 
-## Contêiner e implantação futura
+## Contêiner e implantação
 
 ```bash
 docker build -t nonverbal-api:0.1 .
@@ -95,7 +105,7 @@ docker run --rm -p 127.0.0.1:8000:7860 nonverbal-api:0.1
 
 A imagem usa um usuário sem privilégios, uma instância do modelo e um worker. O modelo é baixado e validado no build. Nenhum segredo, banco ou GPU é necessário. A URL HTTPS, os limites e o custo de hospedagem devem ser definidos antes de implantar; este repositório não cria serviço pago, URL pública ou listagem RapidAPI.
 
-O código da API não guarda uploads, não envia as imagens a outro serviço de inferência nem escreve seu conteúdo em logs. O provedor de hospedagem e clientes podem manter metadados de acesso, segundo suas próprias configurações; isso não é uma promessa de anonimato ou conformidade legal. Respostas usam `Cache-Control: no-store`.
+O código da API não guarda uploads, não envia as imagens a outro serviço de inferência nem escreve seu conteúdo em logs. O provedor de hospedagem e clientes podem manter metadados de acesso, segundo suas próprias configurações; isso não é uma promessa de anonimato ou conformidade legal. Respostas de análise e páginas usam `Cache-Control: no-store`; apenas assets versionados do espelho usam cache imutável.
 
 ## Arquitetura e recursos
 

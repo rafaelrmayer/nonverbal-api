@@ -42,3 +42,7 @@ Antes de apresentar, testar a câmera real no endereço HTTPS do provedor escolh
 O mesmo Dockerfile copia os assets junto do pacote app. Não é necessário outro servidor de frontend ou CORS para a demonstração. Ela ficará disponível na raiz após o deploy do serviço. Nenhuma hospedagem, assinatura ou publicação externa é criada por este PR.
 
 O endpoint continua sendo um protótipo sem autenticação ou quota por consumidor. A demonstração não substitui esses controles; decidir acesso e limites da infraestrutura antes de aceitar uploads públicos irrestritos.
+
+## Espelho local separado
+
+O modo contínuo em `/mirror` executa no navegador, sem usar o endpoint de análise. Veja [MIRROR.md](MIRROR.md) para preparação, privacidade e diferenças em relação à captura descrita aqui.

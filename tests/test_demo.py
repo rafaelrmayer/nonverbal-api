@@ -31,3 +31,41 @@ def test_static_assets_are_available_but_not_arbitrary_source_files(client):
         assert response.headers['X-Content-Type-Options'] == 'nosniff'
     assert session.get('/demo-assets/main.py').status_code == 404
     assert session.get('/demo-assets/%2e%2e/main.py').status_code == 404
+
+
+def test_mirror_is_separate_and_enables_only_same_origin_wasm(client):
+    session, engine = client
+    response = session.get('/mirror')
+    assert response.status_code == 200
+    assert 'Iniciar espelho' in response.text
+    assert "'wasm-unsafe-eval'" in response.headers['Content-Security-Policy']
+    assert "worker-src 'self'" in response.headers['Content-Security-Policy']
+    assert "'unsafe-eval'" not in response.headers['Content-Security-Policy']
+    assert response.headers['Cache-Control'] == 'no-store'
+    assert engine.calls == 0
+    for asset in ['mirror.mjs', 'mirror-worker.js', 'mirror-core.mjs', 'mirror.css']:
+        assert session.get('/demo-assets/' + asset).status_code == 200
+    assert len(session.get('/openapi.json').json()['paths']) == 3
+
+
+def test_runtime_allowlist_missing_assets_and_model_integrity(client, monkeypatch, tmp_path):
+    from app import main
+    session, _ = client
+    config = session.get('/mirror-config').json()
+    monkeypatch.setattr(main, 'RUNTIME_DIR', tmp_path)
+    assert session.get(config['module_url']).status_code == 503
+    assert session.get('/browser-runtime/0.10.32/main.py').status_code == 404
+    assert session.get('/browser-runtime/other/vision_bundle.mjs').status_code == 404
+    folder = tmp_path / '0.10.32'
+    folder.mkdir()
+    (folder / 'vision_bundle.mjs').write_text('// synthetic runtime')
+    response = session.get(config['module_url'])
+    assert response.status_code == 200
+    assert 'immutable' in response.headers['Cache-Control']
+    model = tmp_path / 'invalid.task'
+    model.write_bytes(b'corrupt model')
+    monkeypatch.setenv('POSE_MODEL_PATH', str(model))
+    response = session.get(config['model_url'])
+    assert response.status_code == 503
+    assert response.headers['Cache-Control'] == 'no-store'
+    assert session.get('/mirror-model/wrong.task').status_code == 404

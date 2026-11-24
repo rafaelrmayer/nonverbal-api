@@ -8,7 +8,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from app.images import MAX_BYTES, decode_image, InvalidImage, ImageTooLarge
-from app.model_asset import MODEL_SHA256
+from app.model_asset import MODEL_SHA256, verify_model
+from app.browser_assets import SDK_VERSION, RUNTIME_DIR, RUNTIME_FILES
 from app.pose import PoseEngine, InvalidModelResult
 from app.schemas import BodyResponse
 
@@ -41,13 +42,17 @@ app.mount('/demo-assets', StaticFiles(directory=DEMO_DIR), name='demo-assets')
 @app.middleware('http')
 async def no_cache(request, call_next):
     response = await call_next(request)
-    response.headers['Cache-Control'] = 'no-store'
+    path = request.url.path
+    immutable = path.startswith('/browser-runtime/') or path.startswith('/mirror-model/')
+    response.headers['Cache-Control'] = 'public, max-age=31536000, immutable' if immutable and response.status_code == 200 else 'no-store'
     response.headers['X-Content-Type-Options'] = 'nosniff'
-    if request.url.path == '/' or request.url.path.startswith('/demo-assets/'):
+    mirror = path in {'/mirror', '/demo-assets/mirror-worker.js'}
+    if path == '/' or path == '/mirror' or path.startswith('/demo-assets/'):
         response.headers['Referrer-Policy'] = 'no-referrer'
         response.headers['Permissions-Policy'] = 'camera=(self), microphone=(), geolocation=()'
+        script_policy = "'self' 'wasm-unsafe-eval'" if mirror else "'self'"
         response.headers['Content-Security-Policy'] = (
-            "default-src 'none'; script-src 'self'; style-src 'self'; "
+            f"default-src 'none'; script-src {script_policy}; style-src 'self'; worker-src 'self'; "
             "img-src 'self' blob: data:; media-src 'self' blob: mediastream:; "
             "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
         )
@@ -57,6 +62,41 @@ async def no_cache(request, call_next):
 @app.get('/', include_in_schema=False)
 def demo():
     return FileResponse(DEMO_DIR / 'index.html')
+
+
+@app.get('/mirror', include_in_schema=False)
+def mirror_demo():
+    return FileResponse(DEMO_DIR / 'mirror.html')
+
+
+@app.get('/mirror-config', include_in_schema=False)
+def mirror_config():
+    return {'sdk_version': SDK_VERSION,
+            'module_url': f'/browser-runtime/{SDK_VERSION}/vision_bundle.mjs',
+            'wasm_root': f'/browser-runtime/{SDK_VERSION}',
+            'model_url': f'/mirror-model/{MODEL_SHA256}.task',
+            'model_sha256': MODEL_SHA256}
+
+
+@app.get('/browser-runtime/{version}/{asset}', include_in_schema=False)
+def browser_runtime(version: str, asset: str):
+    if version != SDK_VERSION or asset not in RUNTIME_FILES:
+        raise HTTPException(404, 'Arquivo de execução não encontrado.')
+    path = RUNTIME_DIR / SDK_VERSION / asset
+    if not path.is_file():
+        raise HTTPException(503, 'Runtime local indisponível. Confira a preparação dos assets.')
+    return FileResponse(path, media_type=RUNTIME_FILES[asset])
+
+
+@app.get('/mirror-model/{checksum}.task', include_in_schema=False)
+def mirror_model(checksum: str):
+    if checksum != MODEL_SHA256:
+        raise HTTPException(404, 'Modelo não encontrado.')
+    try:
+        path = verify_model(os.environ.get('POSE_MODEL_PATH', 'models/pose_landmarker_lite.task'))
+    except (OSError, ValueError):
+        raise HTTPException(503, 'Asset do modelo local indisponível.')
+    return FileResponse(path, media_type='application/octet-stream', headers={'ETag': '"'+MODEL_SHA256+'"'})
 
 
 @app.get('/health', tags=['Health'])
