@@ -1,6 +1,6 @@
 # Espelho de pontinhos
 
-A página `/mirror` acompanha movimentos da câmera no próprio navegador. Ela é separada da demonstração por captura em `/` e da API de imagens. A API continua sem endpoint de vídeo.
+A aba **Espelho de pontinhos** na página inicial acompanha movimentos da câmera no próprio navegador. Ela compartilha a tela com **Analisar uma foto**, mantendo processamento separado da API de imagens. O endereço `/mirror` abre a mesma página com o espelho selecionado; `/#mirror` e `/#photo` também selecionam o modo. A API continua sem endpoint de vídeo.
 
 ## Fluxo e privacidade
 
@@ -12,7 +12,7 @@ Um worker clássico executa MediaPipe em modo VIDEO/CPU, até duas poses. Ele re
 
 Somente IDs corporais 11–32 são desenhados. Pontos fora do quadro, não finitos ou com `visibility < 0.7` são omitidos, assim como linhas ligadas a eles. O SDK Web não fornece `presence` por ponto: o espelho usa apenas a visibilidade disponível e não fabrica esse campo. A API Python mantém sua regra original com visibility e presence. O espelho não executa a regra punho/ombro nem atribui emoção, intenção, atenção ou identidade. Cores distinguem desenhos no frame, sem identidade persistente.
 
-**Parar câmera**, ocultar a aba ou sair da página encerra os tracks, termina o worker e limpa os canvases. Uma permissão concedida depois de parar também tem seus tracks encerrados. O botão para parar funciona durante o download. Falhas não acionam envio alternativo à API. Há tempo máximo de preparação e de processamento de um frame para evitar sessão presa.
+Trocar de modo, **Parar câmera**, ocultar a aba ou sair da página encerra os tracks, termina o worker e limpa os canvases. Uma permissão concedida depois de parar também tem seus tracks encerrados. O botão para parar funciona durante o download. Falhas não acionam envio alternativo à API. Há tempo máximo de preparação e de processamento de um frame para evitar sessão presa.
 
 ## Preparação local e Docker
 
@@ -34,3 +34,7 @@ Requer HTTPS (ou localhost), câmera, Worker, ImageBitmap, OffscreenCanvas e sup
 - GitHub Actions: Chromium com câmera sintética, execução real do worker/WASM sobre imagem branca, loop local, ausência de uploads/conexões externas, encerramento e permissão tardia.
 
 Esses testes verificam funcionamento e fluxo, não acurácia ou adequação clínica. Depois da implantação, testar manualmente em computador e celular: permissão, pontos acompanhando uma pessoa, opção só pontinhos, espelhamento, botão parar e saída da aba. Câmera real e desempenho móvel ainda dependem dessa verificação. Não são necessárias imagens de pessoas nos testes automatizados.
+
+## Navegação unificada
+
+As abas de experiência aceitam setas, Home e End. As abas Câmera/Arquivo pertencem somente ao modo por foto. Trocar de experiência encerra a câmera, cancela a preparação do worker ou o envio em andamento no cliente e limpa a visualização; nenhuma câmera é ativada automaticamente no modo seguinte. Um envio já recebido pelo servidor pode concluir seu processamento, mas sua resposta não reaparece na interface. O modelo do espelho só é baixado após clicar em Iniciar espelho.

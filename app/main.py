@@ -46,7 +46,7 @@ async def no_cache(request, call_next):
     immutable = path.startswith('/browser-runtime/') or path.startswith('/mirror-model/')
     response.headers['Cache-Control'] = 'public, max-age=31536000, immutable' if immutable and response.status_code == 200 else 'no-store'
     response.headers['X-Content-Type-Options'] = 'nosniff'
-    mirror = path in {'/mirror', '/demo-assets/mirror-worker.js'}
+    mirror = path in {'/', '/mirror', '/demo-assets/mirror-worker.js'}
     if path == '/' or path == '/mirror' or path.startswith('/demo-assets/'):
         response.headers['Referrer-Policy'] = 'no-referrer'
         response.headers['Permissions-Policy'] = 'camera=(self), microphone=(), geolocation=()'
@@ -66,7 +66,7 @@ def demo():
 
 @app.get('/mirror', include_in_schema=False)
 def mirror_demo():
-    return FileResponse(DEMO_DIR / 'mirror.html')
+    return FileResponse(DEMO_DIR / 'index.html')
 
 
 @app.get('/mirror-config', include_in_schema=False)

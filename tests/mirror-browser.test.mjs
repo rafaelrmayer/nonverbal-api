@@ -51,6 +51,8 @@ test('real worker runs WASM on blank image, returns bitmap, and requests only sa
 test('real local camera loop stops tracks, supports points-only, and never uploads',{timeout:120000},async()=>{
  const {page,requests,errors,close}=await setup();
  try{
+  await page.goto(origin);
+  await page.locator('#mirrorModeTab').click();
   assert.ok(!requests.some(r=>r.url.includes('/mirror-model/')));
   await page.getByRole('button',{name:'Iniciar espelho',exact:true}).click();
   await page.waitForFunction(()=>!document.getElementById('mirrorCanvas').hidden,{},{timeout:90000});
@@ -89,5 +91,72 @@ test('leaving page releases camera even with a frame in flight',async()=>{
   await page.evaluate(()=>{window.tracks=[...document.getElementById('mirrorVideo').srcObject.getTracks()];window.dispatchEvent(new Event('pagehide'));});
   assert.equal(await page.evaluate(()=>window.tracks.every(t=>t.readyState==='ended')),true);
   assert.equal(await page.locator('#startMirror').isEnabled(),true);assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('unified page releases photo camera before opening mirror and keeps source tabs independent',async()=>{
+ const {page,requests,errors,close}=await setup(fakeWorker);
+ try{
+  await page.goto(origin);
+  await page.getByRole('button',{name:'Ativar câmera',exact:true}).click();
+  await page.waitForFunction(()=>document.getElementById('cameraVideo').srcObject!==null);
+  await page.evaluate(()=>{window.tracks=[...document.getElementById('cameraVideo').srcObject.getTracks()];});
+  await page.getByRole('tab',{name:'Espelho de pontinhos',exact:false}).click();
+  assert.equal(await page.evaluate(()=>window.tracks.every(t=>t.readyState==='ended')),true);
+  assert.equal(await page.locator('#photoExperience').isHidden(),true);
+  assert.equal(await page.locator('#mirrorExperience').isVisible(),true);
+  assert.equal(await page.locator('#mirrorVideo').evaluate(v=>v.srcObject),null);
+  await page.locator('#mirrorModeTab').press('Home');
+  assert.equal(await page.locator('#photoExperience').isVisible(),true);
+  await page.locator('#cameraTab').press('End');
+  assert.equal(await page.locator('#filePanel').isVisible(),true);
+  assert.equal(await page.locator('#photoExperience').isVisible(),true);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  assert.ok(requests.every(r=>r.method==='GET'));assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('switching from mirror releases tracks and does not start photo camera',async()=>{
+ const {page,requests,errors,close}=await setup(fakeWorker);
+ try{
+  await page.getByRole('button',{name:'Iniciar espelho',exact:true}).click();
+  await page.waitForFunction(()=>document.getElementById('mirrorVideo').srcObject!==null);
+  await page.evaluate(()=>{window.tracks=[...document.getElementById('mirrorVideo').srcObject.getTracks()];});
+  await page.locator('#photoModeTab').click();
+  assert.equal(await page.evaluate(()=>window.tracks.every(t=>t.readyState==='ended')),true);
+  assert.equal(await page.locator('#cameraVideo').evaluate(v=>v.srcObject),null);
+  assert.equal(await page.locator('#mirrorCanvas').isHidden(),true);
+  assert.equal(await page.locator('#startCamera').isEnabled(),true);
+  await page.locator('#mirrorModeTab').click();
+  assert.equal(await page.locator('#startMirror').isEnabled(),true);
+  assert.ok(requests.every(r=>r.method==='GET'));assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('switching mode cancels a pending mirror permission',async()=>{
+ const {page,errors,close}=await setup(fakeWorker);
+ try{
+  await page.evaluate(()=>{navigator.mediaDevices.getUserMedia=()=>new Promise(resolve=>{window.grant=()=>{const c=document.createElement('canvas');const s=c.captureStream(1);window.track=s.getTracks()[0];resolve(s);};});});
+  await page.getByRole('button',{name:'Iniciar espelho',exact:true}).click();
+  await page.getByText('Aguardando sua permissão para a câmera…',{exact:true}).waitFor();
+  await page.locator('#photoModeTab').click();await page.evaluate(()=>window.grant());
+  await page.waitForFunction(()=>window.track.readyState==='ended');
+  assert.equal(await page.locator('#mirrorVideo').evaluate(v=>v.srcObject),null);
+  assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('switching mode cancels a pending photo permission',async()=>{
+ const {page,errors,close}=await setup(fakeWorker);
+ try{
+  await page.locator('#photoModeTab').click();
+  await page.evaluate(()=>{navigator.mediaDevices.getUserMedia=()=>new Promise(resolve=>{window.grant=()=>{const c=document.createElement('canvas');const s=c.captureStream(1);window.track=s.getTracks()[0];resolve(s);};});});
+  await page.getByRole('button',{name:'Ativar câmera',exact:true}).click();
+  await page.getByText('Aguardando permissão para a câmera…',{exact:true}).waitFor();
+  await page.locator('#mirrorModeTab').click();await page.evaluate(()=>window.grant());
+  await page.waitForFunction(()=>window.track.readyState==='ended');
+  assert.equal(await page.locator('#cameraVideo').evaluate(v=>v.srcObject),null);
+  assert.equal(await page.locator('#mirrorVideo').evaluate(v=>v.srcObject),null);
+  assert.deepEqual(errors,[]);
  }finally{await close();}
 });

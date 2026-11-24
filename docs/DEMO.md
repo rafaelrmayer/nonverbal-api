@@ -1,6 +1,6 @@
 # Demonstração com câmera e arquivo
 
-A página inicial / é servida pela própria FastAPI, com arquivos estáticos em /demo-assets. Ela chama somente /health e /v1/body/analyze da mesma origem. Não existe serviço externo, chave de API no frontend ou armazenamento persistente no navegador.
+A página inicial / é servida pela própria FastAPI, com arquivos estáticos em /demo-assets. No modo por foto, ela chama /health e /v1/body/analyze da mesma origem; os assets do espelho também são servidos nessa origem. Não existe serviço externo, chave de API no frontend ou armazenamento persistente no navegador.
 
 ## Câmera
 
@@ -43,6 +43,6 @@ O mesmo Dockerfile copia os assets junto do pacote app. Não é necessário outr
 
 O endpoint continua sendo um protótipo sem autenticação ou quota por consumidor. A demonstração não substitui esses controles; decidir acesso e limites da infraestrutura antes de aceitar uploads públicos irrestritos.
 
-## Espelho local separado
+## Espelho na mesma página
 
-O modo contínuo em `/mirror` executa no navegador, sem usar o endpoint de análise. Veja [MIRROR.md](MIRROR.md) para preparação, privacidade e diferenças em relação à captura descrita aqui.
+A página inicial reúne a captura por foto e o espelho em abas. O endereço `/mirror` seleciona diretamente o espelho, que executa no navegador sem usar o endpoint de análise. Trocar de modo desliga a câmera e limpa a visualização anterior. Veja [MIRROR.md](MIRROR.md) para preparação, privacidade e diferenças em relação à captura descrita aqui.

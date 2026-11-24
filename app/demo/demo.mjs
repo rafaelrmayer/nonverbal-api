@@ -326,15 +326,15 @@ video.addEventListener('loadeddata', refresh);
 video.addEventListener('playing', refresh);
 video.addEventListener('pause', refresh);
 for (const mode of ['camera','file']) byId(mode + 'Tab').addEventListener('click', () => selectMode(mode));
-document.querySelector('[role="tablist"]').addEventListener('keydown', event => {
+document.querySelector('.source-tabs').addEventListener('keydown', event => {
   if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
   event.preventDefault();
   const mode = event.key === 'Home' ? 'camera' : event.key === 'End' ? 'file' : state.mode === 'camera' ? 'file' : 'camera';
   selectMode(mode);
   byId(mode + 'Tab').focus();
 });
-const release = () => { stopCamera('Câmera desligada ao sair da página.'); clearFrame(); };
-document.addEventListener('visibilitychange', () => { if (document.hidden) release(); });
-window.addEventListener('pagehide', release);
+export const releasePhoto = () => { stopCamera('Câmera desligada ao sair da página.'); clearFrame(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) releasePhoto(); });
+window.addEventListener('pagehide', releasePhoto);
 refresh();
 checkService();

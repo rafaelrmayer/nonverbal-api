@@ -25,7 +25,7 @@ def test_demo_security_policy_limits_media_and_network(client):
 
 def test_static_assets_are_available_but_not_arbitrary_source_files(client):
     session, _ = client
-    for asset in ['demo.mjs', 'demo-core.mjs', 'demo.css']:
+    for asset in ['demo.mjs', 'demo-core.mjs', 'demo.css', 'modes.mjs']:
         response = session.get('/demo-assets/' + asset)
         assert response.status_code == 200
         assert response.headers['X-Content-Type-Options'] == 'nosniff'
@@ -33,11 +33,15 @@ def test_static_assets_are_available_but_not_arbitrary_source_files(client):
     assert session.get('/demo-assets/%2e%2e/main.py').status_code == 404
 
 
-def test_mirror_is_separate_and_enables_only_same_origin_wasm(client):
+def test_both_entrypoints_serve_unified_modes_with_same_origin_wasm(client):
     session, engine = client
     response = session.get('/mirror')
     assert response.status_code == 200
+    assert response.content == session.get('/').content
     assert 'Iniciar espelho' in response.text
+    assert 'Capturar e analisar' in response.text
+    assert 'id="mirrorExperience"' in response.text
+    assert 'id="photoExperience"' in response.text
     assert "'wasm-unsafe-eval'" in response.headers['Content-Security-Policy']
     assert "worker-src 'self'" in response.headers['Content-Security-Policy']
     assert "'unsafe-eval'" not in response.headers['Content-Security-Policy']
