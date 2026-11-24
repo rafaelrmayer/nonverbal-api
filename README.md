@@ -4,6 +4,8 @@
 
 API independente em Python/FastAPI para **descrever sinais corporais observáveis em uma imagem**, sem inferir emoção, intenção, atenção, personalidade ou condição clínica. Esta primeira versão não analisa rosto, voz, microexpressões ou vídeo e não interpreta automaticamente a comunicação de pessoas autistas.
 
+O repositório foi criado como público por decisão do responsável. Isso disponibiliza o código para consulta, mas não significa que exista um serviço público hospedado. Imagens de pessoas e pesos do modelo não são versionados.
+
 ## O que funciona nesta versão
 
 - Recebe bytes de uma imagem JPEG ou PNG e executa o **MediaPipe Pose Landmarker Lite** em CPU.

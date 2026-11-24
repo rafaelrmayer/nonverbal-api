@@ -8,7 +8,7 @@ Primeira entrega: uma imagem JPEG/PNG, detector de pose real, 22 pontos corporai
 
 1. Revisar a implementação e o contrato e conferir os checks no repositório.
 2. Validar build e execução na hospedagem escolhida, medindo memória/CPU com limites reais e acesso controlado. Não inferir capacidade a partir de um teste local.
-3. Conferir procedência/condições do SDK e asset e definir a licença do código antes de abrir o projeto publicamente.
+3. Registrar a licença do código e as atribuições/condições do SDK e asset para distribuição. O responsável criou o repositório como público; o asset continua fora do Git e a publicação do serviço permanece uma etapa separada.
 4. Definir autenticação, quotas e limites da infraestrutura antes de aceitar envios públicos. Revisar política de dados e logs do provedor.
 5. Avaliar exemplos autorizados e critérios de erro/abstenção para o uso desejado, sem anunciar interpretação emocional ou aplicação clínica.
 
