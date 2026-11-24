@@ -1,0 +1,19 @@
+@base = http://127.0.0.1:8000
+
+### Disponibilidade e estado do modelo
+GET {{base}}/health
+
+### Capacidades implementadas
+GET {{base}}/v1/models
+
+### Imagem autorizada: altere o caminho para um arquivo local de teste
+POST {{base}}/v1/body/analyze
+Content-Type: image/jpeg
+
+< ./imagem-autorizada.jpg
+
+### Contrato incorreto: 415, nenhuma inferência
+POST {{base}}/v1/body/analyze
+Content-Type: application/json
+
+{"url":"https://example.invalid/image.jpg"}
