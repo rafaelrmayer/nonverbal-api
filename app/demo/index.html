@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Demonstração corporal da Nonverbal API: câmera ou imagem, pontos de pose e observações geométricas, sem inferir emoções ou intenções.">
+  <title>Nonverbal — laboratório corporal</title>
+  <link rel="stylesheet" href="/demo-assets/demo.css">
+  <script type="module" src="/demo-assets/demo.mjs"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Nonverbal, início">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m7 23 8-15 10 14M7 23h18"/><circle cx="7" cy="23" r="3"/><circle cx="15" cy="8" r="3"/><circle cx="25" cy="22" r="3"/></svg>
+      <span>nonverbal<span class="brand-tag">Laboratório corporal</span></span>
+    </a>
+    <nav aria-label="Links do projeto"><a href="/docs">Documentação</a><a href="https://github.com/rafaelrmayer/nonverbal-api" rel="noopener noreferrer" target="_blank">GitHub</a></nav>
+  </header>
+  <main>
+    <section class="intro" aria-labelledby="pageTitle">
+      <div><span class="eyebrow">Uma imagem. Sinais observáveis.</span><h1 id="pageTitle">Veja a pose,<br>ponto a ponto.</h1><p>Explore posições corporais com câmera ou imagem. O protótipo observa relações geométricas, sem atribuir emoções ou intenções.</p></div>
+      <div class="service-card"><span class="small-label">Estado do serviço</span><strong id="serviceState" role="status">Verificando o modelo…</strong><button id="checkService" class="text-button" type="button">Verificar novamente</button></div>
+    </section>
+    <div id="errorBox" class="error-box" role="alert" hidden></div>
+    <section class="workspace" aria-label="Experimente a análise corporal">
+      <aside class="control-panel">
+        <h2>Escolha a imagem</h2>
+        <div class="source-tabs" role="tablist" aria-label="Origem da imagem">
+          <button id="cameraTab" type="button" role="tab" aria-selected="true" aria-controls="cameraPanel" tabindex="0">Câmera</button>
+          <button id="fileTab" type="button" role="tab" aria-selected="false" aria-controls="filePanel" tabindex="-1">Arquivo</button>
+        </div>
+        <div id="cameraPanel" role="tabpanel" aria-labelledby="cameraTab">
+          <p class="panel-copy">Ative a prévia e enquadre uma pessoa. Inclua ombros e punhos na imagem.</p>
+          <label class="field-label" for="cameraFacing">Câmera preferida</label>
+          <select id="cameraFacing"><option value="user">Frontal</option><option value="environment">Traseira</option></select>
+          <div class="camera-actions"><button id="startCamera" class="secondary" type="button">Ativar câmera</button><button id="stopCamera" class="quiet" type="button" disabled>Desligar</button></div>
+          <p id="cameraState" class="camera-state" role="status">Câmera desligada.</p>
+          <button id="capture" class="primary" type="button" disabled>Capturar e analisar</button>
+          <button id="backToPreview" class="secondary wide" type="button" hidden>Voltar à prévia</button>
+          <p class="privacy-note">A prévia fica no navegador, sem áudio. Somente uma imagem é enviada ao clicar em <strong>Capturar e analisar</strong>.</p>
+        </div>
+        <div id="filePanel" role="tabpanel" aria-labelledby="fileTab" hidden>
+          <p class="panel-copy">Escolha uma imagem que você tenha autorização para processar.</p>
+          <label class="file-picker"><span class="upload-symbol" aria-hidden="true">＋</span><strong>Escolher imagem</strong><span>JPEG ou PNG · até 8 MiB</span><input id="imageFile" type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" aria-label="Escolher imagem JPEG ou PNG"></label>
+          <p id="fileName" class="file-name">Nenhum arquivo selecionado.</p>
+          <button id="analyzeFile" class="primary" type="button" disabled>Analisar imagem</button>
+          <p class="privacy-note">A seleção gera uma prévia local. A imagem só é enviada ao clicar em <strong>Analisar imagem</strong>.</p>
+        </div>
+        <div class="control-bottom"><button id="clear" class="quiet" type="button">Limpar imagem e resultado</button><a href="#howItWorks">Como ler os resultados</a></div>
+      </aside>
+      <div class="analysis-panel" id="analysisPanel" aria-busy="false">
+        <div class="stage-toolbar"><div><span class="small-label">Área de visualização</span><h2 id="stageTitle">Sua prévia aparece aqui</h2></div><label class="toggle"><input id="showPoints" type="checkbox" checked><span>Mostrar pontos</span></label></div>
+        <div class="stage" id="stage">
+          <div id="placeholder" class="placeholder">
+            <svg viewBox="0 0 260 220" aria-hidden="true"><g class="guide"><path d="M28 62V28h34M198 28h34v34M28 158v34h34M198 192h34v-34"/></g><g class="skeleton"><path d="m84 84 45 12 43-13M84 84l-27 39-21-20M172 83l27-31 24-17M129 96v47m-29 0h59m-59 0-15 35-10 28m84-63 15 35 9 28"/><circle cx="129" cy="52" r="20"/></g><g class="nodes"><circle cx="84" cy="84" r="5"/><circle cx="172" cy="83" r="5"/><circle cx="57" cy="123" r="5"/><circle cx="199" cy="52" r="5"/><circle cx="36" cy="103" r="5"/><circle cx="223" cy="35" r="5"/><circle cx="100" cy="143" r="5"/><circle cx="159" cy="143" r="5"/><circle cx="85" cy="178" r="5"/><circle cx="174" cy="178" r="5"/></g></svg>
+            <strong>Comece com a câmera ou um arquivo</strong><p>Esta ilustração não é um resultado de análise.</p>
+          </div>
+          <video id="cameraVideo" autoplay muted playsinline aria-label="Prévia local da câmera, sem áudio" hidden></video>
+          <canvas id="resultCanvas" aria-label="Imagem selecionada com os pontos corporais disponíveis" hidden></canvas>
+          <div id="busyLayer" class="busy-layer" hidden><span class="spinner" aria-hidden="true"></span><span id="busyText">Analisando uma imagem…</span></div>
+        </div>
+        <p id="stageCaption" class="stage-caption">Sem captura ou envio automático. Câmera e resultado usam a mesma orientação, sem espelhamento.</p>
+        <div class="result-heading"><h2>Observações corporais</h2><span id="resultSummary" role="status">Aguardando uma imagem</span></div>
+        <div class="arm-grid"><article class="arm-card"><span class="small-label">Braço esquerdo</span><h3 id="leftRelation">Sem análise</h3><p id="leftReason">O resultado aparecerá após o envio.</p></article><article class="arm-card"><span class="small-label">Braço direito</span><h3 id="rightRelation">Sem análise</h3><p id="rightReason">O resultado aparecerá após o envio.</p></article></div>
+        <details class="technical"><summary>Ver resposta JSON</summary><pre id="responseJson" tabindex="0">Nenhuma resposta recebida.</pre></details>
+      </div>
+    </section>
+    <section id="howItWorks" class="explanation" aria-labelledby="explanationTitle"><div><span class="eyebrow">Contexto antes de conclusão</span><h2 id="explanationTitle">Uma posição não revela<br>o que a pessoa sente.</h2></div><div class="explanation-copy"><p>A API estima 22 pontos corporais. A regra compara a altura de cada punho com a do respectivo ombro no plano da imagem. “Esquerdo” e “direito” seguem a atribuição do modelo à pessoa.</p><p>Pontos pouco visíveis, fora do quadro ou próximos do limiar podem gerar <strong>resultado indeterminado</strong>. Isso não equivale a ausência de gesto. Enquadramento, perspectiva e inclinação da câmera afetam as observações.</p><p>Os pontos exibidos passam pelos limiares técnicos do protótipo. Os escores do detector não são probabilidades calibradas de emoção, intenção ou significado.</p></div></section>
+  </main>
+  <footer><span>Nonverbal API · Rafael Ricardo Mayer</span><span>Protótipo experimental · câmera por captura, sem análise contínua</span></footer>
+</body>
+</html>

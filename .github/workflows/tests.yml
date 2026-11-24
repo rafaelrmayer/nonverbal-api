@@ -22,3 +22,19 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -t nonverbal-api:ci .
       - run: docker run --rm --memory=512m --cpus=1 nonverbal-api:ci python -m scripts.smoke_model
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:demo
+      - run: python -m pip install fastapi==0.165.0 uvicorn==0.54.0 Pillow==12.3.0
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser

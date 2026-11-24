@@ -1,0 +1,12 @@
+{
+  "name": "nonverbal-demo-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:demo": "node --test tests/demo-core.test.mjs",
+    "test:browser": "node --test tests/demo-browser.test.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}
