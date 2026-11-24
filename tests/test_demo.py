@@ -73,3 +73,21 @@ def test_runtime_allowlist_missing_assets_and_model_integrity(client, monkeypatc
     assert response.status_code == 503
     assert response.headers['Cache-Control'] == 'no-store'
     assert session.get('/mirror-model/wrong.task').status_code == 404
+
+
+def test_hand_asset_is_separate_hash_checked_and_not_part_of_api(client, monkeypatch, tmp_path):
+    from app import main
+    session, engine = client
+    config = session.get('/mirror-config').json()
+    model = tmp_path / 'hands.task'
+    model.write_bytes(b'corrupt hand model')
+    monkeypatch.setenv('HAND_MODEL_PATH', str(model))
+    assert session.get(config['hand_model_url']).status_code == 503
+    assert session.get('/mirror-hand-model/wrong.task').status_code == 404
+    monkeypatch.setattr(main.hand_asset, 'verify_model', lambda path: model)
+    response = session.get(config['hand_model_url'])
+    assert response.status_code == 200
+    assert 'immutable' in response.headers['Cache-Control']
+    assert response.headers['etag'] == '"' + config['hand_model_sha256'] + '"'
+    assert engine.calls == 0
+    assert len(session.get('/openapi.json').json()['paths']) == 3

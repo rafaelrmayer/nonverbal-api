@@ -27,7 +27,7 @@ Consulte o [guia da demonstração](docs/DEMO.md) para limites, testes e verific
 
 ## Espelho de pontinhos no navegador
 
-A aba **Espelho de pontinhos** oferece uma brincadeira visual com pontos e linhas acompanhando a câmera. O processamento acontece no dispositivo, em um worker WebAssembly, sem envio de frames ou áudio. Inclui opções de só pontinhos e imagem espelhada, até duas poses e botão para parar. O primeiro início baixa SDK e modelo do próprio site; velocidade e compatibilidade dependem do aparelho. Não interpreta comportamento.
+A aba **Espelho de pontinhos** oferece uma brincadeira visual com pontos e linhas acompanhando a câmera. O processamento acontece no dispositivo, em um worker WebAssembly, sem envio de frames ou áudio. Inclui opções de só pontinhos e imagem espelhada, até duas poses e botão para parar. O detalhamento opcional das mãos acompanha 21 pontos por mão, fecha o contorno da palma e pode desenhar um triângulo entre o punho e as pontas do indicador e do médio quando a geometria corresponde a dois dedos abertos. Não interpreta o significado do gesto. O primeiro início baixa SDK e modelo do próprio site; velocidade e compatibilidade dependem do aparelho. Não interpreta comportamento.
 
 Os dois modos compartilham a página, mas cada um mantém seu fluxo de processamento. Isso não adiciona vídeo ao contrato da API. O endereço `/mirror` continua abrindo a página com o espelho selecionado. Veja [preparação, privacidade e testes](docs/MIRROR.md). A câmera real do novo modo deve ser conferida após implantar esta alteração.
 
@@ -81,6 +81,7 @@ python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 python -m scripts.download_model
+python -m scripts.download_hand_model
 # Para habilitar o espelho local (Node 24):
 npm ci
 npm run prepare:mirror

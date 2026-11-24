@@ -81,6 +81,8 @@
       <aside class="control-panel">
         <h2>Vamos experimentar?</h2><p>Enquadre o corpo e deixe espaço para se movimentar. Até duas pessoas podem aparecer.</p>
         <label class="field-label" for="facing">Câmera preferida</label><select id="facing"><option value="user">Frontal</option><option value="environment">Traseira</option></select>
+        <label class="mirror-option"><input id="detailHands" type="checkbox" checked> Detalhar mãos e dedos</label>
+        <label class="mirror-option"><input id="handTriangles" type="checkbox" checked> Fechar triângulo com dois dedos</label>
         <button id="startMirror" class="primary wide" type="button">Iniciar espelho</button>
         <button id="stopMirror" class="secondary wide stop-mirror" type="button" disabled>Parar câmera</button>
         <label class="mirror-option"><input id="onlyPoints" type="checkbox"> Só pontinhos</label>
@@ -88,9 +90,9 @@
         <p id="mirrorStatus" role="status">Câmera desligada.</p>
         <p class="privacy-note">Trocar de modo, ocultar a aba ou sair desta página desliga a câmera. Para voltar, clique em iniciar.</p>
       </aside>
-      <div class="mirror-panel"><div class="mirror-stage"><video id="mirrorVideo" autoplay muted playsinline aria-hidden="true"></video><canvas id="mirrorCanvas" aria-label="Pontos e linhas corporais acompanhando a imagem" hidden></canvas><div id="mirrorPlaceholder"><span aria-hidden="true">✦</span><strong>Seu movimento vira desenho.</strong><p>A câmera só liga quando você iniciar.</p></div></div><p class="mirror-caption">Pontos incertos somem do desenho. O modelo pode falhar com pouca luz, oclusão ou movimento rápido.</p></div>
+      <div class="mirror-panel"><div class="mirror-stage"><video id="mirrorVideo" autoplay muted playsinline aria-hidden="true"></video><canvas id="mirrorCanvas" aria-label="Pontos e linhas corporais acompanhando a imagem" hidden></canvas><div id="mirrorPlaceholder"><span aria-hidden="true">✦</span><strong>Seu movimento vira desenho.</strong><p>A câmera só liga quando você iniciar.</p></div></div><p class="mirror-caption">Para explorar os dedos, aproxime a mão da câmera e mantenha-a inteira no quadro. O modelo pode falhar com pouca luz, oclusão ou movimento rápido.</p></div>
     </section>
-    <section class="mirror-notes"><h2>Uma experiência simples, no seu ritmo.</h2><p>Este espelho desenha pontos de ombros, braços, tronco, mãos e pernas. Não analisa emoções, intenções, atenção ou diagnóstico. A velocidade depende do aparelho; a imagem pode ter atraso.</p><p>Prefere uma imagem parada? <a href="#photo">Escolha Analisar uma foto</a>. Nesse outro modo, a análise envia uma imagem à API somente após seu clique.</p><p><a href="/browser-runtime/0.10.32/NOTICE.txt">Créditos do runtime MediaPipe</a> · <a href="https://github.com/rafaelrmayer/nonverbal-api">Código e documentação</a></p></section>
+    <section class="mirror-notes"><h2>Uma experiência simples, no seu ritmo.</h2><p>Este espelho desenha pontos de ombros, braços, tronco, mãos e pernas. Com o detalhamento ligado, acompanha 21 pontos por mão e fecha o contorno da palma. A opção de triângulo liga o punho às pontas do indicador e do médio quando a geometria estimada mostra esses dois dedos abertos e anelar e mínimo dobrados. É uma brincadeira geométrica e pode falhar. Não analisa emoções, intenções, atenção ou diagnóstico. A velocidade depende do aparelho; a imagem pode ter atraso.</p><p>Prefere uma imagem parada? <a href="#photo">Escolha Analisar uma foto</a>. Nesse outro modo, a análise envia uma imagem à API somente após seu clique.</p><p><a href="/browser-runtime/0.10.32/NOTICE.txt">Créditos do runtime MediaPipe</a> · <a href="https://github.com/rafaelrmayer/nonverbal-api">Código e documentação</a></p></section>
     </section>
   </main>
   <footer><span>Nonverbal API · Rafael Ricardo Mayer</span><span>Protótipo experimental · foto pela API ou espelho no dispositivo</span></footer>

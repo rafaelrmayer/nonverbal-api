@@ -20,7 +20,7 @@ RUN mkdir -p /app/models && chown appuser:appuser /app/models
 USER appuser
 ENV MPLCONFIGDIR=/tmp/nonverbal-mpl
 ENV XDG_CACHE_HOME=/tmp/nonverbal-cache
-RUN python -m scripts.download_model
+RUN python -m scripts.download_model && python -m scripts.download_hand_model
 ENV POSE_MODEL_PATH=/app/models/pose_landmarker_lite.task
 EXPOSE 7860
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860", "--workers", "1"]

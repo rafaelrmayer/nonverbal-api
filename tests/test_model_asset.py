@@ -32,3 +32,12 @@ def test_corrupt_download_does_not_create_output(tmp_path, monkeypatch):
     with pytest.raises(ValueError):
         setup.download(path)
     assert not path.exists()
+
+
+def test_hand_model_missing_or_corrupt_is_rejected(tmp_path):
+    from app import hand_model_asset
+    for path in [tmp_path / 'missing.task', tmp_path / 'corrupt.task']:
+        if path.name == 'corrupt.task':
+            path.write_bytes(b'corrupt')
+        with pytest.raises(ValueError):
+            hand_model_asset.verify_model(path)
