@@ -17,10 +17,19 @@ O repositório foi criado como público por decisão do responsável. Isso dispo
 
 O modelo estima 33 pontos por pose; a API filtra o resultado para o canal corporal. [Documentação oficial do MediaPipe](https://developers.google.com/edge/mediapipe/solutions/vision/pose_landmarker).
 
+## Demonstração visual com câmera
+
+A página inicial do serviço oferece **câmera por captura** e **upload de imagem**. A prévia da câmera é local, sem áudio. Uma imagem só é enviada ao clicar em **Capturar e analisar** ou **Analisar imagem**; os pontos são exibidos sobre a mesma imagem enviada, junto com observações de cada braço e JSON opcional.
+
+Há controles para desligar a câmera, voltar à prévia e limpar os dados locais. Sair/ocultar a página também encerra a câmera. A captura precisa de HTTPS ou localhost. Não há gravação, envio contínuo, armazenamento no navegador ou nova interpretação de emoção/intenções.
+
+Consulte o [guia da demonstração](docs/DEMO.md) para limites, testes e verificação em dispositivo real. A página é servida pela própria API; não é necessário um site separado. O recurso está implementado no código, mas ainda depende da hospedagem do serviço para uma URL pública.
+
 ## Endpoints
 
 | Método | Caminho | Resultado |
 | --- | --- | --- |
+| GET | `/` | Demonstração com câmera por captura e upload de imagem. |
 | GET | `/health` | Estado do processo e `body_model_ready`. Health 200 não garante modelo disponível. |
 | GET | `/v1/models` | Modelo, hash, disponibilidade, recursos e canais não implementados. |
 | POST | `/v1/body/analyze` | Imagem → pontos corporais e observações geométricas. |

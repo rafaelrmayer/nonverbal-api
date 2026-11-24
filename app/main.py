@@ -1,8 +1,11 @@
 from contextlib import asynccontextmanager
 import logging
 import os
+from pathlib import Path
 import anyio
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from app.images import MAX_BYTES, decode_image, InvalidImage, ImageTooLarge
 from app.model_asset import MODEL_SHA256
@@ -31,13 +34,29 @@ async def lifespan(app):
 app = FastAPI(title='Nonverbal API', version='0.1.0', lifespan=lifespan,
               description='Protótipo de observações geométricas corporais em uma imagem. Não infere emoção, intenção, atenção ou diagnóstico. Sem análise facial, vocal ou temporal nesta versão.')
 
+DEMO_DIR = Path(__file__).resolve().parent / 'demo'
+app.mount('/demo-assets', StaticFiles(directory=DEMO_DIR), name='demo-assets')
+
 
 @app.middleware('http')
 async def no_cache(request, call_next):
     response = await call_next(request)
     response.headers['Cache-Control'] = 'no-store'
     response.headers['X-Content-Type-Options'] = 'nosniff'
+    if request.url.path == '/' or request.url.path.startswith('/demo-assets/'):
+        response.headers['Referrer-Policy'] = 'no-referrer'
+        response.headers['Permissions-Policy'] = 'camera=(self), microphone=(), geolocation=()'
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'none'; script-src 'self'; style-src 'self'; "
+            "img-src 'self' blob: data:; media-src 'self' blob: mediastream:; "
+            "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+        )
     return response
+
+
+@app.get('/', include_in_schema=False)
+def demo():
+    return FileResponse(DEMO_DIR / 'index.html')
 
 
 @app.get('/health', tags=['Health'])
