@@ -19,7 +19,7 @@ O modelo estima 33 pontos por pose; a API filtra o resultado para o canal corpor
 
 ## Demonstração visual com câmera
 
-A página inicial do serviço oferece **câmera por captura** e **upload de imagem**. A prévia da câmera é local, sem áudio. Uma imagem só é enviada ao clicar em **Capturar e analisar** ou **Analisar imagem**; os pontos são exibidos sobre a mesma imagem enviada, junto com observações de cada braço e JSON opcional.
+A página inicial reúne **Analisar uma foto** (câmera por captura ou upload) e **Espelho de pontinhos** em duas abas. Ao trocar de modo, a câmera é encerrada e a visualização anterior é limpa. No modo por foto, a prévia da câmera é local, sem áudio. Uma imagem só é enviada ao clicar em **Capturar e analisar** ou **Analisar imagem**; os pontos são exibidos sobre a mesma imagem enviada, junto com observações de cada braço e JSON opcional.
 
 Há controles para desligar a câmera, voltar à prévia e limpar os dados locais. Sair/ocultar a página também encerra a câmera. A captura precisa de HTTPS ou localhost. Não há gravação, envio contínuo, armazenamento no navegador ou nova interpretação de emoção/intenções.
 
@@ -27,16 +27,16 @@ Consulte o [guia da demonstração](docs/DEMO.md) para limites, testes e verific
 
 ## Espelho de pontinhos no navegador
 
-A página `/mirror` oferece uma brincadeira visual com pontos e linhas acompanhando a câmera. O processamento acontece no dispositivo, em um worker WebAssembly, sem envio de frames ou áudio. Inclui opções de só pontinhos e imagem espelhada, até duas poses e botão para parar. O primeiro início baixa SDK e modelo do próprio site; velocidade e compatibilidade dependem do aparelho. Não interpreta comportamento.
+A aba **Espelho de pontinhos** oferece uma brincadeira visual com pontos e linhas acompanhando a câmera. O processamento acontece no dispositivo, em um worker WebAssembly, sem envio de frames ou áudio. Inclui opções de só pontinhos e imagem espelhada, até duas poses e botão para parar. O primeiro início baixa SDK e modelo do próprio site; velocidade e compatibilidade dependem do aparelho. Não interpreta comportamento.
 
-Este modo é separado da análise por foto e não adiciona vídeo ao contrato da API. Veja [preparação, privacidade e testes](docs/MIRROR.md). A câmera real do novo modo deve ser conferida após implantar esta alteração.
+Os dois modos compartilham a página, mas cada um mantém seu fluxo de processamento. Isso não adiciona vídeo ao contrato da API. O endereço `/mirror` continua abrindo a página com o espelho selecionado. Veja [preparação, privacidade e testes](docs/MIRROR.md). A câmera real do novo modo deve ser conferida após implantar esta alteração.
 
 ## Endpoints
 
 | Método | Caminho | Resultado |
 | --- | --- | --- |
-| GET | `/` | Demonstração com câmera por captura e upload de imagem. |
-| GET | `/mirror` | Espelho local com câmera, sem envio de frames. |
+| GET | `/` | Demonstração unificada: análise por foto e espelho local. |
+| GET | `/mirror` | Mesma demonstração, iniciando na aba do espelho local. |
 | GET | `/health` | Estado do processo e `body_model_ready`. Health 200 não garante modelo disponível. |
 | GET | `/v1/models` | Modelo, hash, disponibilidade, recursos e canais não implementados. |
 | POST | `/v1/body/analyze` | Imagem → pontos corporais e observações geométricas. |

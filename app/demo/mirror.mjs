@@ -4,7 +4,7 @@ const video=el('mirrorVideo'),canvas=el('mirrorCanvas'),ctx=canvas.getContext('2
 const lastFrame=document.createElement('canvas'),lastCtx=lastFrame.getContext('2d');
 let generation=0,worker,stream,timer,prepareTimer,frameTimer,rejectInit,abort,poses=[],lastTime=-1;
 function status(text){if(el('mirrorStatus').textContent!==text)el('mirrorStatus').textContent=text;}
-function stop(message='Câmera desligada.') {
+export function stopMirror(message='Câmera desligada.') {
   generation++;
   clearTimeout(timer);clearTimeout(prepareTimer);clearTimeout(frameTimer);
   abort?.abort();abort=null;
@@ -17,7 +17,7 @@ function stop(message='Câmera desligada.') {
   el('startMirror').disabled=false;el('stopMirror').disabled=true;el('facing').disabled=false;
   status(message);
 }
-function fail(message){stop(message);el('mirrorError').textContent=message;el('mirrorError').hidden=false;}
+function fail(message){stopMirror(message);el('mirrorError').textContent=message;el('mirrorError').hidden=false;}
 function draw(){
   if(canvas.hidden)return;
   ctx.fillStyle='#101c32';ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -43,7 +43,7 @@ async function nextFrame(token){
   } catch {bitmap?.close();if(token===generation)fail('Este navegador não conseguiu processar a câmera localmente. Experimente a demonstração por foto.');}
 }
 el('startMirror').addEventListener('click',async()=>{
-  stop();const token=generation;el('mirrorError').hidden=true;
+  stopMirror();const token=generation;el('mirrorError').hidden=true;
   el('startMirror').disabled=true;el('stopMirror').disabled=false;el('facing').disabled=true;
   status('Preparando o modelo local… Na primeira vez, o download pode demorar.');
   try {
@@ -77,14 +77,14 @@ el('startMirror').addEventListener('click',async()=>{
     const acquired=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:el('facing').value},width:{ideal:640},height:{ideal:480}}});
     if(token!==generation){acquired.getTracks().forEach(track=>track.stop());return;}
     stream=acquired;
-    for(const track of stream.getVideoTracks())track.addEventListener('ended',()=>{if(token===generation)stop('A câmera foi desconectada.');},{once:true});
+    for(const track of stream.getVideoTracks())track.addEventListener('ended',()=>{if(token===generation)stopMirror('A câmera foi desconectada.');},{once:true});
     video.srcObject=stream;await video.play();if(token!==generation)return;
     nextFrame(token);
   } catch(error){if(token===generation)fail(error.name==='NotAllowedError'?'A permissão da câmera foi recusada. Você pode tentar novamente ou usar a demonstração por foto.':'Não foi possível iniciar o espelho local. Confira a câmera e a conexão ou experimente outro navegador.');}
 });
-el('stopMirror').addEventListener('click',()=>stop());
+el('stopMirror').addEventListener('click',()=>stopMirror());
 el('onlyPoints').addEventListener('change',draw);
 el('flip').addEventListener('change',()=>canvas.classList.toggle('flipped',el('flip').checked));
 canvas.classList.add('flipped');
-document.addEventListener('visibilitychange',()=>{if(document.hidden)stop('Câmera desligada ao sair da aba.');});
-window.addEventListener('pagehide',()=>stop());
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stopMirror('Câmera desligada ao sair da aba.');});
+window.addEventListener('pagehide',()=>stopMirror());
