@@ -10,10 +10,10 @@
 
 A execução local do MediaPipe exigiu disponibilizar `libGLESv2.so.2` no ambiente de teste; o Dockerfile instala as dependências nativas correspondentes. Nenhum binário nativo ou imagem de pessoa foi incluído no repositório.
 
-## Contêiner: verificação pendente
+## Contêiner validado no GitHub Actions
 
-O build local padrão esbarrou no certificado do proxy deste ambiente. Uma tentativa local com a cadeia de certificados confiável montada temporariamente avançou na instalação, mas não concluiu por falta de espaço no armazenamento Docker (VFS). A verificação TLS não foi desabilitada; o Dockerfile do projeto não contém certificados do ambiente nem exceções de TLS.
+A [execução 45453221231](https://github.com/rafaelrmayer/nonverbal-api/actions/runs/45453221231) concluiu os dois checks com sucesso: `tests` e `container-smoke`. O segundo construiu o Dockerfile do projeto e executou `python -m scripts.smoke_model` dentro do contêiner, com limite de **512 MiB de memória e 1 CPU**. O modelo real em CPU retornou `no_pose` para a imagem branca gerada.
 
-Portanto, **não foi confirmado o build completo nem a execução do contêiner nesta sessão**. O workflow tem um job `container-smoke` para construir a imagem e carregar o modelo real numa imagem branca, com limite de 512 MiB/1 CPU, em um runner separado. Esse check precisa passar antes da implantação.
+Essa verificação confirma build, dependências nativas, download/hash do asset e carregamento/execução do modelo nesse runner. Não é teste de carga, dimensionamento de produção ou garantia de que toda entrada suportada ficará dentro do mesmo limite. A implantação no provedor escolhido e sua configuração de acesso ainda precisam ser realizadas.
 
-O modelo e a API foram testados nativamente, mas esses testes não substituem a verificação do contêiner ou da hospedagem. Não houve publicação, teste de carga, estudo de acurácia ou avaliação clínica.
+Não houve hospedagem pública, teste de carga, estudo de acurácia ou avaliação clínica.

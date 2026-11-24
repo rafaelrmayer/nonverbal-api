@@ -99,4 +99,4 @@ A regra e a validação ficam separadas do detector. Não há chamada a LLM, RAG
 
 O limite de uma análise por processo evita fila de inferências dentro do aplicativo; requisições adicionais recebem 429, com `Retry-After`. Isso não substitui autenticação, rate limiting global ou proteção da infraestrutura. O recurso limita a concorrência, não mede capacidade de produção.
 
-Veja o [registro da validação inicial e pendências do contêiner](docs/VALIDATION.md), [docs/MODEL.md](docs/MODEL.md) para procedência, limites e evidências de teste e [docs/ROADMAP.md](docs/ROADMAP.md) para o recorte inicial e próximos passos.
+Veja o [registro da validação inicial e do contêiner](docs/VALIDATION.md), [docs/MODEL.md](docs/MODEL.md) para procedência, limites e evidências de teste e [docs/ROADMAP.md](docs/ROADMAP.md) para o recorte inicial e próximos passos.
