@@ -13,7 +13,8 @@ from app import hand_model_asset as hand_asset
 from app import face_model_asset as face_asset
 from app.browser_assets import SDK_VERSION, RUNTIME_DIR, RUNTIME_FILES
 from app.pose import PoseEngine, InvalidModelResult
-from app.schemas import BodyResponse, FaceResponse
+from app.schemas import BodyResponse, FaceResponse, VocalResponse
+from app.vocal import analyze_wav, InvalidAudio, MAX_AUDIO_BYTES
 from app.face import FaceEngine
 
 MAX_UPLOAD_SECONDS = 10
@@ -46,7 +47,7 @@ async def lifespan(app):
 
 
 app = FastAPI(title='Nonverbal API', version='0.1.0', lifespan=lifespan,
-              description='Protótipo de observações geométricas corporais em uma imagem. Não infere emoção, intenção, atenção ou diagnóstico. A API HTTP oferece análise corporal e facial por imagem; vídeo e movimentos são processados localmente na demonstração. Sem análise vocal nesta versão.')
+              description='Protótipo de observações geométricas corporais em uma imagem. Não infere emoção, intenção, atenção ou diagnóstico. A API HTTP oferece análise corporal e facial por imagem; vídeo e movimentos são processados localmente na demonstração. Áudio WAV recebe medidas acústicas sem transcrição ou interpretação emocional.')
 
 DEMO_DIR = Path(__file__).resolve().parent / 'demo'
 app.mount('/demo-assets', StaticFiles(directory=DEMO_DIR), name='demo-assets')
@@ -62,7 +63,7 @@ async def no_cache(request, call_next):
     mirror = path in {'/', '/mirror', '/demo-assets/mirror-worker.js'}
     if path == '/' or path == '/mirror' or path.startswith('/demo-assets/'):
         response.headers['Referrer-Policy'] = 'no-referrer'
-        response.headers['Permissions-Policy'] = 'camera=(self), microphone=(), geolocation=()'
+        response.headers['Permissions-Policy'] = 'camera=(self), microphone=(self), geolocation=()'
         script_policy = "'self' 'wasm-unsafe-eval'" if mirror else "'self'"
         response.headers['Content-Security-Policy'] = (
             f"default-src 'none'; script-src {script_policy}; style-src 'self'; worker-src 'self'; "
@@ -158,7 +159,8 @@ def models(request: Request):
                              'asset_available': getattr(request.app.state, 'face_model_available', False),
                              'sha256': face_asset.MODEL_SHA256, 'experimental': True,
                              'supports': ['single_image_face_contours', 'opening_ratios']}],
-            'unsupported_channels': ['vocal', 'video'],
+            'vocal_algorithm': {'id':'pcm-autocorrelation-v1','supports':['wav_pcm16','rms_dbfs','pitch_periodicity','low_energy_intervals'],'learned_model':False},
+            'unsupported_channels': ['video'],
             'notice': 'Disponibilidade técnica não significa validação da interpretação.'}
 
 
@@ -181,7 +183,7 @@ def analyze_image(engine, data, media_type):
           openapi_extra={'requestBody': {'required': True, 'content': {
               media: {'schema': {'type': 'string', 'format': 'binary'}} for media in ['image/jpeg', 'image/png']}}})
 async def body(request: Request):
-    return await handle_image_request(request, 'body')
+    return await handle_media_request(request, 'body')
 
 
 @app.post('/v1/face/analyze', response_model=FaceResponse, tags=['Face'],
@@ -192,7 +194,7 @@ async def body(request: Request):
           openapi_extra={'requestBody': {'required': True, 'content': {
               media: {'schema': {'type': 'string', 'format': 'binary'}} for media in ['image/jpeg', 'image/png']}}})
 async def face(request: Request):
-    return await handle_image_request(request, 'face')
+    return await handle_media_request(request, 'face')
 
 
 def analyze_face_image(app, data, media_type):
@@ -206,10 +208,22 @@ def analyze_face_image(app, data, media_type):
         image.close()
 
 
-async def handle_image_request(request: Request, channel: str):
+@app.post('/v1/vocal/analyze', response_model=VocalResponse, tags=['Vocal'],
+          summary='Medidas acústicas em WAV PCM16, sem interpretação emocional',
+          responses={408:{'description':'Envio excedeu 10 segundos'},413:{'description':'Mais de 8 MiB'},
+                     415:{'description':'Tipo diferente de WAV'},422:{'description':'WAV incompatível, inválido ou acima de 30 s'},
+                     429:{'description':'Uma análise já está em andamento'}},
+          openapi_extra={'requestBody': {'required':True,'content':{media:{'schema':{'type':'string','format':'binary'}} for media in ['audio/wav','audio/x-wav']}}})
+async def vocal(request: Request):
+    return await handle_media_request(request, 'vocal')
+
+
+async def handle_media_request(request: Request, channel: str):
     media_type = request.headers.get('content-type', '').split(';', 1)[0].strip().lower()
-    if media_type not in {'image/jpeg', 'image/png'}:
-        raise HTTPException(415, 'Envie bytes JPEG ou PNG com Content-Type correspondente; não envie URL, base64 ou multipart.')
+    allowed = {'audio/wav','audio/x-wav'} if channel=='vocal' else {'image/jpeg','image/png'}
+    if media_type not in allowed:
+        detail = 'Envie bytes WAV PCM16 com Content-Type audio/wav; não envie URL, base64 ou multipart.' if channel=='vocal' else 'Envie bytes JPEG ou PNG com Content-Type correspondente; não envie URL, base64 ou multipart.'
+        raise HTTPException(415, detail)
     engine = getattr(request.app.state, 'engine', None)
     if channel == 'body' and engine is None:
         raise HTTPException(503, 'Modelo corporal indisponível.')
@@ -227,15 +241,19 @@ async def handle_image_request(request: Request, channel: str):
             with anyio.fail_after(MAX_UPLOAD_SECONDS):
                 async for chunk in request.stream():
                     size += len(chunk)
-                    if size > MAX_BYTES:
-                        raise HTTPException(413, 'Imagem excede 2 MiB.')
+                    if size > (MAX_AUDIO_BYTES if channel=='vocal' else MAX_BYTES):
+                        raise HTTPException(413, 'Áudio excede 8 MiB.' if channel=='vocal' else 'Imagem excede 2 MiB.')
                     chunks.append(chunk)
         except TimeoutError:
-            raise HTTPException(408, 'Tempo máximo de envio da imagem excedido.')
+            raise HTTPException(408, 'Tempo máximo de envio da amostra excedido.')
         try:
+            if channel == 'vocal':
+                return await run_in_threadpool(analyze_wav, b''.join(chunks))
             if channel == 'face':
                 return await run_in_threadpool(analyze_face_image, request.app, b''.join(chunks), media_type)
             return await run_in_threadpool(analyze_image, engine, b''.join(chunks), media_type)
+        except InvalidAudio as exc:
+            raise HTTPException(422, str(exc))
         except ImageTooLarge:
             raise HTTPException(413, 'Imagem excede os limites de bytes ou pixels.')
         except InvalidImage:

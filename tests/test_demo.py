@@ -10,14 +10,14 @@ def test_demo_is_same_origin_without_changing_the_api_contract(client):
     assert 'Analisar imagem' in response.text
     assert 'role="alert"' in response.text
     assert engine.calls == 0
-    assert len(session.get('/openapi.json').json()['paths']) == 4
+    assert len(session.get('/openapi.json').json()['paths']) == 5
 
 
 def test_demo_security_policy_limits_media_and_network(client):
     session, _ = client
     response = session.get('/')
     assert response.headers['Cache-Control'] == 'no-store'
-    assert response.headers['Permissions-Policy'] == 'camera=(self), microphone=(), geolocation=()'
+    assert response.headers['Permissions-Policy'] == 'camera=(self), microphone=(self), geolocation=()'
     assert "connect-src 'self'" in response.headers['Content-Security-Policy']
     assert "frame-ancestors 'none'" in response.headers['Content-Security-Policy']
     assert response.headers['Referrer-Policy'] == 'no-referrer'
@@ -49,7 +49,7 @@ def test_both_entrypoints_serve_unified_modes_with_same_origin_wasm(client):
     assert engine.calls == 0
     for asset in ['mirror.mjs', 'mirror-worker.js', 'mirror-core.mjs', 'mirror.css', 'face-core.mjs']:
         assert session.get('/demo-assets/' + asset).status_code == 200
-    assert len(session.get('/openapi.json').json()['paths']) == 4
+    assert len(session.get('/openapi.json').json()['paths']) == 5
 
 
 def test_runtime_allowlist_missing_assets_and_model_integrity(client, monkeypatch, tmp_path):
@@ -90,7 +90,7 @@ def test_hand_asset_is_separate_hash_checked_and_not_part_of_api(client, monkeyp
     assert 'immutable' in response.headers['Cache-Control']
     assert response.headers['etag'] == '"' + config['hand_model_sha256'] + '"'
     assert engine.calls == 0
-    assert len(session.get('/openapi.json').json()['paths']) == 4
+    assert len(session.get('/openapi.json').json()['paths']) == 5
 
 
 def test_face_asset_rejects_wrong_hash_and_keeps_api_contract(client, monkeypatch, tmp_path):
@@ -110,4 +110,4 @@ def test_face_asset_rejects_wrong_hash_and_keeps_api_contract(client, monkeypatc
     assert 'immutable' in response.headers['Cache-Control']
     assert response.headers['etag'] == '"' + config['face_model_sha256'] + '"'
     assert engine.calls == 0
-    assert len(session.get('/openapi.json').json()['paths']) == 4
+    assert len(session.get('/openapi.json').json()['paths']) == 5

@@ -72,3 +72,34 @@ class FaceResponse(Contract):
     measures: dict[Literal['mouth', 'leftEye', 'rightEye'], OpeningMeasure]
     coordinate_system: Literal['normalized_image_x_right_y_down'] = 'normalized_image_x_right_y_down'
     notice: str = 'Razões geométricas experimentais, sem unidade. Não são confiança, emoção, atenção, identidade ou diagnóstico. Sem reconhecimento de identidade ou armazenamento de imagens.'
+
+
+class EnergyFrame(Contract):
+    time_seconds: FiniteFloat = Field(ge=0, le=30)
+    rms_dbfs: FiniteFloat = Field(ge=-120, le=0)
+
+
+class LowEnergyInterval(Contract):
+    start_seconds: FiniteFloat = Field(ge=0, le=30)
+    end_seconds: FiniteFloat = Field(gt=0, le=30)
+
+
+class VocalResponse(Contract):
+    version: Literal['0.1.0'] = '0.1.0'
+    experimental: Literal[True] = True
+    channel: Literal['vocal'] = 'vocal'
+    algorithm: Literal['pcm-autocorrelation-v1'] = 'pcm-autocorrelation-v1'
+    duration_seconds: FiniteFloat = Field(gt=0, le=30)
+    sample_rate_hz: int = Field(ge=8000, le=48000)
+    channels: Literal[1, 2]
+    rms_dbfs: FiniteFloat = Field(ge=-120, le=0)
+    peak_dbfs: FiniteFloat = Field(ge=-120, le=0)
+    clipped_sample_fraction: FiniteFloat = Field(ge=0, le=1)
+    pitch_median_hz: FiniteFloat | None = Field(default=None, ge=70, le=800)
+    pitch_reason: Literal['periodicity_estimated', 'insufficient_periodicity']
+    periodic_frame_count: int = Field(ge=0, le=1500)
+    low_energy_threshold_dbfs: Literal[-40.0] = -40.0
+    minimum_low_energy_seconds: Literal[0.2] = 0.2
+    low_energy_intervals: list[LowEnergyInterval] = Field(max_length=150)
+    envelope: list[EnergyFrame] = Field(max_length=1500)
+    notice: str

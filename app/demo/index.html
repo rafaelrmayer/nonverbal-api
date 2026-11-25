@@ -19,12 +19,13 @@
   </header>
   <main>
     <section class="intro" aria-labelledby="pageTitle">
-      <div><span class="eyebrow">Seu movimento, ponto a ponto.</span><h1 id="pageTitle">Veja a pose,<br>ponto a ponto.</h1><p>Escolha entre analisar uma foto e acompanhar seus movimentos no espelho de pontinhos. Sem atribuir emoções ou intenções.</p></div>
-      <div class="service-card"><span class="small-label">Você escolhe como explorar</span><strong>Uma foto ou um espelho.</strong><p>O espelho fica no dispositivo. A análise por foto envia uma imagem somente após seu clique.</p></div>
+      <div><span class="eyebrow">Seu movimento, ponto a ponto.</span><h1 id="pageTitle">Veja a pose,<br>ponto a ponto.</h1><p>Explore uma foto, acompanhe movimentos no espelho ou veja medidas acústicas de uma amostra de áudio. Sem atribuir emoções ou intenções.</p></div>
+      <div class="service-card"><span class="small-label">Você escolhe como explorar</span><strong>Foto, movimento ou áudio.</strong><p>O espelho e o vídeo ficam no dispositivo. Fotos e áudios só são enviados à API após seu clique.</p></div>
     </section>
     <div class="experience-tabs" role="tablist" aria-label="Modo de experiência">
       <button id="photoModeTab" type="button" role="tab" aria-selected="true" aria-controls="photoExperience">Analisar uma foto<span>Câmera ou arquivo · envio após seu clique</span></button>
       <button id="mirrorModeTab" type="button" role="tab" aria-selected="false" aria-controls="mirrorExperience" tabindex="-1">Espelho de pontinhos<span>Movimento contínuo · no seu dispositivo</span></button>
+      <button id="vocalModeTab" type="button" role="tab" aria-selected="false" aria-controls="vocalExperience" tabindex="-1">Voz e áudio<span>Medidas acústicas · envio após seu clique</span></button>
     </div>
     <section id="photoExperience" role="tabpanel" aria-labelledby="photoModeTab">
     <div class="service-card photo-service"><span class="small-label">Estado do serviço</span><strong id="serviceState" role="status">Verificando o modelo…</strong><button id="checkService" class="text-button" type="button">Verificar novamente</button></div>
@@ -110,6 +111,24 @@
         </section></div>
     </section>
     <section class="mirror-notes"><h2>Uma experiência simples, no seu ritmo.</h2><p>Este espelho desenha pontos de ombros, braços, tronco, mãos e pernas. O módulo facial acompanha contornos de olhos, sobrancelhas, lábios e mandíbula, sem reconhecimento de identidade. Mostra até dois contornos faciais; as medidas são exibidas apenas quando há um rosto detectado no frame. Não há histórico ou cadastro de rostos. Com o detalhamento ligado, acompanha 21 pontos por mão e fecha o contorno da palma. A opção de triângulo liga o punho às pontas do indicador e do médio quando a geometria estimada mostra esses dois dedos abertos e anelar e mínimo dobrados. É uma brincadeira geométrica e pode falhar. Não analisa emoções, intenções, atenção ou diagnóstico. A velocidade depende do aparelho; a imagem pode ter atraso.</p><p>Prefere uma imagem parada? <a href="#photo">Escolha Analisar uma foto</a>. Nesse outro modo, a análise envia uma imagem à API somente após seu clique.</p><p><a href="/browser-runtime/0.10.32/NOTICE.txt">Créditos do runtime MediaPipe</a> · <a href="https://github.com/rafaelrmayer/nonverbal-api">Código e documentação</a></p></section>
+    </section>
+    <section id="vocalExperience" role="tabpanel" aria-labelledby="vocalModeTab" hidden>
+      <div class="mode-intro"><h2>Explore os sinais do áudio.</h2><p>Energia digital, periodicidade e intervalos de baixa energia. Sem transcrição, identificação de voz ou interpretação de emoções e intenções.</p></div>
+      <div id="vocalError" class="error-box" role="alert" hidden></div>
+      <div class="workspace"><aside class="control-panel"><h2>Escolha uma amostra</h2>
+        <label class="field-label" for="vocalSource">Origem do áudio</label><select id="vocalSource"><option value="file">Arquivo WAV</option><option value="microphone">Microfone</option></select>
+        <div id="vocalFileGroup"><label class="field-label" for="vocalFile">Escolher WAV PCM16</label><input id="vocalFile" type="file" accept="audio/wav,audio/x-wav,.wav"><p class="privacy-note">Até 8 MiB e 30 segundos. PCM16 mono/estéreo, de 8 a 48 kHz. MP3, AAC e WebM não são aceitos nesta etapa.</p></div>
+        <div id="vocalMicGroup" hidden><button id="vocalRecord" class="secondary wide" type="button">Gravar até 30 s</button><button id="vocalStop" class="secondary wide" type="button" disabled>Parar gravação</button><p class="privacy-note">O microfone só liga após seu clique e permissão. A gravação fica no navegador até você analisar. Ao trocar de modo ou ocultar a aba, ela é descartada.</p></div>
+        <audio id="vocalPreview" controls preload="metadata" hidden aria-label="Prévia local do áudio selecionado"></audio>
+        <button id="vocalAnalyze" class="primary wide" type="button" disabled>Analisar áudio</button><button id="vocalClear" class="quiet wide" type="button">Limpar áudio e resultados</button>
+        <p id="vocalStatus" class="privacy-note" role="status">Escolha um WAV ou grave uma amostra local. Nada é enviado automaticamente.</p>
+        <p class="privacy-note"><strong>Analisar áudio envia uma cópia à API.</strong> Não há gravação automática, reconhecimento de identidade ou armazenamento de amostras pelo código da aplicação.</p>
+      </aside><div class="analysis-panel"><h2>Como ler as medidas</h2><p class="privacy-note">dBFS descreve amplitude digital relativa ao limite do arquivo; não é volume físico em dB SPL. A frequência estimada exige periodicidade e pode estar indeterminada. Tons, música e ruído também influenciam os resultados.</p>
+        <section id="vocalResults" hidden aria-busy="false"><dl class="vocal-metrics"><div><dt>Duração</dt><dd id="vocalDuration">—</dd></div><div><dt>Energia RMS</dt><dd id="vocalRMS">—</dd></div><div><dt>Pico digital</dt><dd id="vocalPeak">—</dd></div><div><dt>Frequência fundamental estimada</dt><dd id="vocalPitch">—</dd></div><div><dt>Amostras próximas ao limite digital</dt><dd id="vocalClipping">—</dd></div></dl>
+        <h3>Energia ao longo do tempo</h3><p class="privacy-note">Eixo vertical: dBFS. Eixo horizontal: início ao fim da amostra.</p><canvas id="vocalChart" width="800" height="180" aria-label="Curva de energia digital ao longo da amostra"></canvas>
+        <h3>Intervalos de baixa energia</h3><p id="vocalIntervalNote" class="privacy-note"></p><ul id="vocalIntervals"></ul>
+        <details class="technical"><summary>Ver resposta acústica JSON</summary><pre id="vocalJson" tabindex="0">Nenhuma análise recebida.</pre></details></section>
+      </div></div>
     </section>
   </main>
   <footer><span>Nonverbal API · Rafael Ricardo Mayer</span><span>Protótipo experimental · foto pela API ou espelho no dispositivo</span></footer>

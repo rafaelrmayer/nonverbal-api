@@ -2,7 +2,7 @@
 
 **Autor:** Rafael Ricardo Mayer · **Versão:** 0.1.0 · **Estado:** protótipo corporal hospedado no Render; ainda sem publicação no marketplace.
 
-API independente em Python/FastAPI para **descrever sinais corporais observáveis em uma imagem**, sem inferir emoção, intenção, atenção, personalidade ou condição clínica. A API oferece contornos faciais e geometria por foto, mas não interpreta expressões, voz, microexpressões ou vídeo e não interpreta automaticamente a comunicação de pessoas autistas.
+API independente em Python/FastAPI para **descrever sinais corporais observáveis em uma imagem**, sem inferir emoção, intenção, atenção, personalidade ou condição clínica. A API oferece contornos faciais e geometria por foto, mas não interpreta o significado de expressões, voz ou microexpressões e não interpreta automaticamente a comunicação de pessoas autistas.
 
 O repositório foi criado como público por decisão do responsável. Demonstração hospedada: https://nonverbal-api.onrender.com/. Imagens de pessoas e pesos do modelo não são versionados.
 
@@ -19,7 +19,7 @@ O modelo estima 33 pontos por pose; a API filtra o resultado para o canal corpor
 
 ## Demonstração visual com câmera
 
-A página inicial reúne **Analisar uma foto** (câmera por captura ou upload) e **Espelho de pontinhos** em duas abas. Ao trocar de modo, a câmera é encerrada e a visualização anterior é limpa. No modo por foto, a prévia da câmera é local, sem áudio. Uma imagem só é enviada ao clicar em **Capturar e analisar** ou **Analisar imagem**; os pontos são exibidos sobre a mesma imagem enviada, junto com observações de cada braço e JSON opcional.
+A página inicial reúne **Analisar uma foto** (câmera por captura ou upload) e **Espelho de pontinhos**, além de **Voz e áudio**, em três abas. Ao trocar de modo, a câmera é encerrada e a visualização anterior é limpa. No modo por foto, a prévia da câmera é local, sem áudio. Uma imagem só é enviada ao clicar em **Capturar e analisar** ou **Analisar imagem**; os pontos são exibidos sobre a mesma imagem enviada, junto com observações de cada braço e JSON opcional.
 
 Há controles para desligar a câmera, voltar à prévia e limpar os dados locais. Sair/ocultar a página também encerra a câmera. A captura precisa de HTTPS ou localhost. Não há gravação, envio contínuo, armazenamento no navegador ou nova interpretação de emoção/intenções.
 
@@ -29,7 +29,7 @@ Consulte o [guia da demonstração](docs/DEMO.md) para limites, testes e verific
 
 A aba **Espelho de pontinhos** oferece uma brincadeira visual com pontos e linhas acompanhando a câmera. O processamento acontece no dispositivo, em um worker WebAssembly, sem envio de frames ou áudio. Inclui opções de só pontinhos e imagem espelhada, até duas poses e botão para parar. O detalhamento opcional das mãos acompanha 21 pontos por mão, fecha o contorno da palma e pode desenhar um triângulo entre o punho e as pontas do indicador e do médio quando a geometria corresponde a dois dedos abertos. Não interpreta o significado do gesto. O primeiro início baixa SDK e modelo do próprio site; velocidade e compatibilidade dependem do aparelho. Não interpreta comportamento.
 
-Os dois modos compartilham a página, mas cada um mantém seu fluxo de processamento. Isso não adiciona vídeo ao contrato da API. O endereço `/mirror` continua abrindo a página com o espelho selecionado. Veja [preparação, privacidade e testes](docs/MIRROR.md). A câmera real do novo modo deve ser conferida após implantar esta alteração.
+Os modos compartilham a página, mas cada um mantém seu fluxo de processamento. Isso não adiciona vídeo ao contrato da API. O endereço `/mirror` continua abrindo a página com o espelho selecionado. Veja [preparação, privacidade e testes](docs/MIRROR.md). A câmera real do novo modo deve ser conferida após implantar esta alteração.
 
 ## Módulo facial do espelho
 
@@ -47,10 +47,11 @@ Corpo, mãos e rosto podem ser selecionados antes de iniciar. Usar só rosto red
 | GET | `/v1/models` | Modelo, hash, disponibilidade, recursos e canais não implementados. |
 | POST | `/v1/body/analyze` | Imagem → pontos corporais e observações geométricas. |
 | POST | `/v1/face/analyze` | JPEG/PNG → contornos faciais e razões de abertura; sem escolher entre múltiplos rostos. |
+| POST | `/v1/vocal/analyze` | WAV PCM16 → energia digital, periodicidade estimada e intervalos de baixa energia. |
 | GET | `/docs` | Interface Swagger para explorar o contrato. |
 | GET | `/openapi.json` | Definição OpenAPI. |
 
-Envie o **arquivo binário diretamente**, com `Content-Type: image/jpeg` ou `image/png`. Não há URL remota, base64, multipart, áudio ou vídeo. Limites: **2 MiB**, **4 milhões de pixels**, uma análise em andamento por processo, até **10 segundos para receber o corpo**. Imagens animadas são recusadas. O modelo recebe uma versão redimensionada para no máximo 1280 pixels no lado maior, após aplicar a orientação EXIF.
+Envie o **arquivo binário diretamente**, com `Content-Type: image/jpeg` ou `image/png`. Esses endpoints de imagem não aceitam URL remota, base64, multipart, áudio ou vídeo. Limites: **2 MiB**, **4 milhões de pixels**, uma análise em andamento por processo, até **10 segundos para receber o corpo**. Imagens animadas são recusadas. O modelo recebe uma versão redimensionada para no máximo 1280 pixels no lado maior, após aplicar a orientação EXIF.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/v1/body/analyze \
@@ -134,3 +135,9 @@ Veja o [registro da validação inicial e do contêiner](docs/VALIDATION.md), [d
 No espelho, selecione **Arquivo de vídeo local** ou use a câmera. Vídeos MP4/WebM/MOV dependem do codec suportado pelo navegador e têm limites de 100 MiB, 60 segundos e 4 milhões de pixels por frame. Não há upload, análise de áudio ou endpoint de vídeo. O processamento usa frames amostrados durante a reprodução, com pausa/continuação.
 
 Os rastros de punhos e tornozelos usam até dois segundos de amostras em memória e só uma pose detectada. Distâncias são relativas à diagonal da imagem; não são metros, velocidade física ou classificação de comportamento. Veja [VIDEO.md](docs/VIDEO.md) e [FACE_PHOTO.md](docs/FACE_PHOTO.md) para contratos, limites e testes.
+
+## Voz e áudio
+
+A terceira aba permite selecionar WAV PCM16 ou gravar uma amostra de microfone por até 30 segundos. Gravação e prévia ficam no navegador; **Analisar áudio** envia uma cópia explicitamente à API. Parar, trocar de modo, ocultar ou sair da página encerra o microfone e limpa dados locais. Não há envio automático ou gravação persistente pelo código da aplicação.
+
+O endpoint `/v1/vocal/analyze` aceita até 8 MiB, 30 segundos, mono/estéreo e 8–48 kHz. Retorna RMS/pico em dBFS, frequência fundamental estimada por periodicidade (ou null), curva de energia e intervalos abaixo do limiar de energia. Não transcreve nem classifica emoção, identidade, intenção, fala ou hesitação. É processamento de sinal determinístico, sem modelo treinado adicional. Veja [VOCAL.md](docs/VOCAL.md) para método, limites, privacidade e testes.
