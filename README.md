@@ -1,6 +1,6 @@
 # Nonverbal API
 
-**Autor:** Rafael Ricardo Mayer · **Versão:** 0.1.0 · **Estado:** protótipo corporal hospedado no Render; ainda sem publicação no marketplace.
+**Autor:** Rafael Ricardo Mayer · **Versão:** 0.1.0 · **Estado:** protótipo com módulos corporal, facial e vocal hospedado no Render; integração RapidAPI preparada, com publicação no painel ainda pendente.
 
 API independente em Python/FastAPI para **descrever sinais corporais observáveis em uma imagem**, sem inferir emoção, intenção, atenção, personalidade ou condição clínica. A API oferece contornos faciais e geometria por foto, mas não interpreta o significado de expressões, voz ou microexpressões e não interpreta automaticamente a comunicação de pessoas autistas.
 
@@ -21,7 +21,7 @@ O modelo estima 33 pontos por pose; a API filtra o resultado para o canal corpor
 
 A página inicial reúne **Analisar uma foto** (câmera por captura ou upload) e **Espelho de pontinhos**, além de **Voz e áudio**, em três abas. Ao trocar de modo, a câmera é encerrada e a visualização anterior é limpa. No modo por foto, a prévia da câmera é local, sem áudio. Uma imagem só é enviada ao clicar em **Capturar e analisar** ou **Analisar imagem**; os pontos são exibidos sobre a mesma imagem enviada, junto com observações de cada braço e JSON opcional.
 
-Há controles para desligar a câmera, voltar à prévia e limpar os dados locais. Sair/ocultar a página também encerra a câmera. A captura precisa de HTTPS ou localhost. Não há gravação, envio contínuo, armazenamento no navegador ou nova interpretação de emoção/intenções.
+Há controles para desligar a câmera, voltar à prévia e limpar os dados locais. Sair/ocultar a página também encerra a câmera. A captura precisa de HTTPS ou localhost. No modo por foto não há gravação, envio contínuo ou armazenamento persistente; a aba vocal possui gravação local explícita e controles próprios.
 
 Consulte o [guia da demonstração](docs/DEMO.md) para limites, testes e verificação em dispositivo real. A página é servida pela própria API; não é necessário um site separado. A captura e o upload já foram experimentados pelo responsável em dispositivo real.
 
@@ -113,7 +113,7 @@ docker build -t nonverbal-api:0.1 .
 docker run --rm -p 127.0.0.1:8000:7860 nonverbal-api:0.1
 ```
 
-A imagem usa um usuário sem privilégios, uma instância do modelo e um worker. O modelo é baixado e validado no build. Nenhum segredo, banco ou GPU é necessário. A URL HTTPS, os limites e o custo de hospedagem devem ser definidos antes de implantar; este repositório não cria serviço pago, URL pública ou listagem RapidAPI.
+A imagem usa um usuário sem privilégios, uma instância do modelo e um worker. O modelo é baixado e validado no build. Banco e GPU não são necessários. A integração opcional com o RapidAPI exige `RAPIDAPI_PROXY_SECRET` apenas no ambiente do servidor. A URL HTTPS, os limites e o custo de hospedagem devem ser definidos antes de implantar; este repositório não cria serviço pago, URL pública ou listagem RapidAPI.
 
 O código da API não guarda uploads, não envia as imagens a outro serviço de inferência nem escreve seu conteúdo em logs. O provedor de hospedagem e clientes podem manter metadados de acesso, segundo suas próprias configurações; isso não é uma promessa de anonimato ou conformidade legal. Respostas de análise e páginas usam `Cache-Control: no-store`; apenas assets versionados do espelho usam cache imutável.
 
@@ -141,3 +141,15 @@ Os rastros de punhos e tornozelos usam até dois segundos de amostras em memóri
 A terceira aba permite selecionar WAV PCM16 ou gravar uma amostra de microfone por até 30 segundos. Gravação e prévia ficam no navegador; **Analisar áudio** envia uma cópia explicitamente à API. Parar, trocar de modo, ocultar ou sair da página encerra o microfone e limpa dados locais. Não há envio automático ou gravação persistente pelo código da aplicação.
 
 O endpoint `/v1/vocal/analyze` aceita até 8 MiB, 30 segundos, mono/estéreo e 8–48 kHz. Retorna RMS/pico em dBFS, frequência fundamental estimada por periodicidade (ou null), curva de energia e intervalos abaixo do limiar de energia. Não transcreve nem classifica emoção, identidade, intenção, fala ou hesitação. É processamento de sinal determinístico, sem modelo treinado adicional. Veja [VOCAL.md](docs/VOCAL.md) para método, limites, privacidade e testes.
+
+## Preparação para o RapidAPI
+
+O namespace `/rapidapi` encaminha somente as cinco operações HTTP documentadas, mediante `X-RapidAPI-Proxy-Secret`. Sem configuração, responde 503; sem segredo correto, 403. Os endpoints originais e a demonstração permanecem públicos: essa proteção e as cotas do RapidAPI não abrangem os acessos diretos à origem.
+
+O arquivo [docs/rapidapi/openapi.json](docs/rapidapi/openapi.json) exporta as cinco operações em OpenAPI 3.0.3 para importação, com Base URL `https://nonverbal-api.onrender.com/rapidapi`. Não contém segredo nem chave de consumidor. Para regenerar: `python -m scripts.export_rapidapi`; para conferir: `python -m scripts.export_rapidapi --check`.
+
+A publicação, os planos e o segredo ainda precisam ser configurados pelo responsável nos painéis. O [guia de publicação](docs/RAPIDAPI.md) inclui os textos da listagem, o plano gratuito sugerido e um teste manual via Actions com PNG/WAV sintéticos. A existência desse arquivo não significa que a listagem já está pública.
+
+## Conferência prática da demonstração
+
+Em 25/11/2026, o responsável confirmou funcionamento no serviço hospedado de corpo/mãos, contornos faciais, análise facial por foto, vídeo local e gravação/análise vocal com câmera e microfone reais. Essa conferência funcional não é benchmark, validação de precisão, teste de carga ou garantia de compatibilidade com todos os aparelhos.
