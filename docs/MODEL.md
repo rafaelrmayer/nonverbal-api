@@ -61,6 +61,10 @@ Testes adicionais cobrem geometria positiva/negativa e rotação, filtragem, enc
 
 O modelo estima 478 pontos internamente. O worker preserva somente coordenadas 2D válidas dos contornos usados (124 conexões oficiais de olhos, sobrancelhas, lábios e oval facial); descarta os demais pontos, coordenadas z, blendshapes e matrizes de transformação. A saída não é usada para identificação, emoções ou direção do olhar. A detecção, presença e rastreamento usam limiares técnicos 0,6, sem fabricar visibilidade/confiança por ponto. Com dois rostos, o SDK não aplica a suavização reservada ao modo de um rosto, podendo haver oscilação.
 
-O download explícito (`python -m scripts.download_face_model`) verifica o hash antes de publicar o arquivo atomicamente. Servidor e worker verificam novamente. `FACE_MODEL_PATH` pode apontar para o mesmo asset aprovado. O backend Python agora carrega esse detector sob demanda para `/v1/face/analyze`, compartilhando o limite de uma análise com o módulo corporal. As condições do SDK e do modelo devem ser consultadas separadamente nas fontes; a licença do runtime não é apresentada como licença do modelo.
+O download explícito (`python -m scripts.download_face_model`) verifica o hash antes de publicar o arquivo atomicamente. Servidor e worker verificam novamente. `FACE_MODEL_PATH` pode apontar para o mesmo asset aprovado. O backend Python carrega o detector facial sob demanda para a análise por foto, compartilhando a vaga de inferência com os outros endpoints. As condições do SDK e do modelo devem ser consultadas separadamente nas fontes; a licença do runtime não é apresentada como licença do modelo.
 
 A verificação automatizada carrega o modelo real sobre imagem branca e testa geometria/renderização com pontos sintéticos. Não comprova precisão com câmera física, acurácia de abertura dos olhos/boca, desempenho em celulares ou generalização em pessoas. Essas verificações práticas permanecem necessárias após implantar.
+
+## Módulo vocal
+
+O algoritmo acústico `pcm-autocorrelation-v1` não carrega modelos treinados. Métodos, limiares, limites e evidências estão em [VOCAL.md](VOCAL.md). Não realiza reconhecimento de voz, identidade ou emoções.

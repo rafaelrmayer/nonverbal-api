@@ -11,7 +11,7 @@ A página inicial / é servida pela própria FastAPI, com arquivos estáticos em
 5. A resposta é desenhada sobre **o mesmo frame capturado**, sem espelhamento adicional, junto com observações dos braços. Não são desenhados pontos sobre vídeo em movimento como se a resposta fosse atual.
 6. Usar **Voltar à prévia** antes de uma nova captura, ou **Desligar** para encerrar as tracks. A câmera pode continuar ativa enquanto o resultado é mostrado; a interface informa esse estado.
 
-Desligar a câmera, trocar para arquivo, ocultar/sair da página ou limpar a demonstração encerra as tracks, inclusive quando uma permissão antiga só termina de resolver depois da troca. Ocultar/sair também limpa os dados locais da análise e cancela a espera por resposta. Não há gravação, áudio, detecção de emoção ou análise contínua de vídeo.
+Desligar a câmera, trocar para arquivo, ocultar/sair da página ou limpar a demonstração encerra as tracks, inclusive quando uma permissão antiga só termina de resolver depois da troca. Ocultar/sair também limpa os dados locais da análise e cancela a espera por resposta. No modo por foto não há gravação, áudio, detecção de emoção ou análise contínua de vídeo. A aba vocal tem controles separados e envio explícito, descritos em VOCAL.md.
 
 ## Arquivo
 
@@ -35,7 +35,7 @@ Somente pontos dentro do quadro, com visibilidade e presença de pelo menos 0,7,
 - A integração do backend com o modelo real permanece verificada separadamente no job container-smoke.
 - O ambiente de desenvolvimento desta sessão não oferece a ferramenta de prévia visual gerenciada; não foi feito teste manual de navegador local ou câmera física nele.
 
-Antes de apresentar, testar a câmera real no endereço HTTPS do provedor escolhido: permissão concedida/recusada, desligamento, nova captura, upload e layout no dispositivo desejado. Permissions-Policy permite câmera somente na própria origem e bloqueia microfone. A página não aceita incorporação em iframe de outra origem. A liberação do navegador e o indicador de câmera dependem do dispositivo.
+Antes de apresentar, testar a câmera real no endereço HTTPS do provedor escolhido: permissão concedida/recusada, desligamento, nova captura, upload e layout no dispositivo desejado. Permissions-Policy permite câmera e microfone somente na própria origem. O microfone é usado apenas após clicar em gravar na aba vocal e conceder permissão. A página não aceita incorporação em iframe de outra origem. A liberação do navegador e o indicador de câmera dependem do dispositivo.
 
 ## Publicação
 

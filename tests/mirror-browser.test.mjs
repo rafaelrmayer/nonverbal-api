@@ -7,6 +7,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {chromium} from 'playwright';
+import {encodeWav} from '../app/demo/vocal-core.mjs';
 const origin='http://127.0.0.1:8033';
 let browser,server,videoFixture;
 const clipPath=join(tmpdir(),'nonverbal-clip-'+process.pid+'.webm');
@@ -360,5 +361,96 @@ test('motion uses bounded local samples and clears on ambiguous or lost pose',as
   await page.getByRole('button',{name:'Parar câmera',exact:true}).click();
   assert.equal(await page.locator('#motionValues dd').first().textContent(),'—');
   assert.ok(requests.every(r=>r.method==='GET'&&new URL(r.url).origin===origin));assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+function toneWav(){
+ const samples=Float32Array.from({length:16000},(_,i)=>i<12000?.25*Math.sin(2*Math.PI*220*i/16000):0);
+ return {name:'synthetic.wav',mimeType:'audio/wav',buffer:Buffer.from(encodeWav([samples],16000))};
+}
+test('WAV preview is local until explicit vocal analysis; real endpoint returns tone measurements',async()=>{
+ const {page,requests,errors,close}=await setup();
+ try{
+  await page.locator('#vocalModeTab').click();await page.locator('#vocalFile').setInputFiles(toneWav());
+  await page.waitForFunction(()=>!document.getElementById('vocalAnalyze').disabled);
+  assert.equal(requests.filter(r=>r.method==='POST').length,0);
+  await page.getByRole('button',{name:'Analisar áudio',exact:true}).click();
+  await page.waitForFunction(()=>!document.getElementById('vocalResults').hidden);
+  assert.equal(requests.filter(r=>r.method==='POST'&&r.url.endsWith('/v1/vocal/analyze')).length,1);
+  assert.match(await page.locator('#vocalPitch').textContent(),/220[,\.]0 Hz/);
+  assert.match(await page.locator('#vocalIntervalNote').textContent(),/−40 dBFS/);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.getByRole('button',{name:'Limpar áudio e resultados',exact:true}).click();
+  assert.equal(await page.locator('#vocalPreview').getAttribute('src'),null);
+  assert.equal(await page.locator('#vocalResults').isHidden(),true);assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('real AudioWorklet records synthetic microphone locally and stops every track before upload',async()=>{
+ const {page,requests,errors,close}=await setup(()=>{
+  const original=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  navigator.mediaDevices.getUserMedia=async options=>{const s=await original(options);window.vocalTracks=s.getTracks();window.microphoneOptions=options;return s;};
+ });
+ try{
+  await page.context().grantPermissions(['camera','microphone']);
+  await page.locator('#vocalModeTab').click();await page.locator('#vocalSource').selectOption('microphone');
+  await page.getByRole('button',{name:'Gravar até 30 s',exact:true}).click();
+  await page.waitForFunction(()=>document.getElementById('vocalStatus').textContent.startsWith('Gravando localmente'),null,{timeout:15000});
+  await delay(600);
+  assert.equal(await page.evaluate(()=>window.microphoneOptions.video),false);
+  assert.equal(requests.filter(r=>r.method==='POST').length,0);
+  await page.getByRole('button',{name:'Parar gravação',exact:true}).click();
+  await page.waitForFunction(()=>!document.getElementById('vocalAnalyze').disabled);
+  assert.equal(await page.evaluate(()=>window.vocalTracks.every(t=>t.readyState==='ended')),true);
+  assert.equal(requests.filter(r=>r.method==='POST').length,0);
+  await page.getByRole('button',{name:'Analisar áudio',exact:true}).click();
+  await page.waitForFunction(()=>!document.getElementById('vocalResults').hidden);
+  assert.equal(requests.filter(r=>r.method==='POST').length,1);assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('late microphone permission is released after switching experience',async()=>{
+ const {page,requests,errors,close}=await setup(()=>{
+  navigator.mediaDevices.getUserMedia=()=>new Promise(resolve=>{window.grantLateMic=()=>{const ctx=new AudioContext();window.syntheticMicContext=ctx;const out=ctx.createMediaStreamDestination();window.lateMicTrack=out.stream.getTracks()[0];resolve(out.stream);};});
+ });
+ try{
+  await page.locator('#vocalModeTab').click();await page.locator('#vocalSource').selectOption('microphone');
+  await page.getByRole('button',{name:'Gravar até 30 s',exact:true}).click();
+  await page.getByText('Aguardando sua permissão para o microfone…',{exact:true}).waitFor();
+  await page.locator('#photoModeTab').click();await page.evaluate(()=>window.grantLateMic());
+  await page.waitForFunction(()=>window.lateMicTrack.readyState==='ended');
+  await page.evaluate(()=>window.syntheticMicContext.close());
+  assert.equal(await page.locator('#vocalPreview').getAttribute('src'),null);
+  assert.equal(requests.filter(r=>r.method==='POST').length,0);assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('leaving vocal experience stops an active synthetic microphone and discards recording',async()=>{
+ const {page,requests,errors,close}=await setup(()=>{
+  const original=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+  navigator.mediaDevices.getUserMedia=async options=>{const s=await original(options);window.micTracks=s.getTracks();return s;};
+ });
+ try{
+  await page.context().grantPermissions(['microphone','camera']);await page.locator('#vocalModeTab').click();
+  await page.locator('#vocalSource').selectOption('microphone');await page.locator('#vocalRecord').click();
+  await page.waitForFunction(()=>document.getElementById('vocalStatus').textContent.startsWith('Gravando localmente'));
+  await page.locator('#mirrorModeTab').click();
+  assert.equal(await page.evaluate(()=>window.micTracks.every(t=>t.readyState==='ended')),true);
+  assert.equal(await page.locator('#vocalPreview').getAttribute('src'),null);
+  assert.equal(requests.filter(r=>r.method==='POST').length,0);assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('denied microphone permission and invalid WAV never send audio',async()=>{
+ const {page,requests,errors,close}=await setup(()=>{navigator.mediaDevices.getUserMedia=async()=>{throw new DOMException('denied','NotAllowedError');};});
+ try{
+  await page.locator('#vocalModeTab').click();await page.locator('#vocalSource').selectOption('microphone');
+  await page.locator('#vocalRecord').click();await page.getByRole('alert').waitFor();
+  assert.match(await page.getByRole('alert').textContent(),/Permissão do microfone recusada/);
+  await page.locator('#vocalSource').selectOption('file');
+  await page.locator('#vocalFile').setInputFiles({name:'bad.wav',mimeType:'audio/wav',buffer:Buffer.from('not WAV')});
+  await page.getByRole('alert').waitFor();
+  assert.equal(await page.locator('#vocalAnalyze').isDisabled(),true);
+  assert.equal(requests.filter(r=>r.method==='POST').length,0);assert.deepEqual(errors,[]);
  }finally{await close();}
 });
