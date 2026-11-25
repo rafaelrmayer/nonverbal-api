@@ -1,6 +1,6 @@
 # Nonverbal API
 
-**Autor:** Rafael Ricardo Mayer · **Versão:** 0.1.0 · **Estado:** protótipo com módulos corporal, facial e vocal hospedado no Render; integração RapidAPI preparada, com publicação no painel ainda pendente.
+**Autor:** Rafael Ricardo Mayer · **Versão:** 0.1.0 · **Estado:** protótipo com módulos corporal, facial e vocal hospedado no Render; publicado no RapidAPI em 25/11/2026, conforme confirmação do responsável.
 
 API independente em Python/FastAPI para **descrever sinais corporais observáveis em uma imagem**, sem inferir emoção, intenção, atenção, personalidade ou condição clínica. A API oferece contornos faciais e geometria por foto, mas não interpreta o significado de expressões, voz ou microexpressões e não interpreta automaticamente a comunicação de pessoas autistas.
 
@@ -142,13 +142,15 @@ A terceira aba permite selecionar WAV PCM16 ou gravar uma amostra de microfone p
 
 O endpoint `/v1/vocal/analyze` aceita até 8 MiB, 30 segundos, mono/estéreo e 8–48 kHz. Retorna RMS/pico em dBFS, frequência fundamental estimada por periodicidade (ou null), curva de energia e intervalos abaixo do limiar de energia. Não transcreve nem classifica emoção, identidade, intenção, fala ou hesitação. É processamento de sinal determinístico, sem modelo treinado adicional. Veja [VOCAL.md](docs/VOCAL.md) para método, limites, privacidade e testes.
 
-## Preparação para o RapidAPI
+## Nonverbal API no RapidAPI
 
 O namespace `/rapidapi` encaminha somente as cinco operações HTTP documentadas, mediante `X-RapidAPI-Proxy-Secret`. Sem configuração, responde 503; sem segredo correto, 403. Os endpoints originais e a demonstração permanecem públicos: essa proteção e as cotas do RapidAPI não abrangem os acessos diretos à origem.
 
 O arquivo [docs/rapidapi/openapi.json](docs/rapidapi/openapi.json) exporta as cinco operações em OpenAPI 3.0.3 para importação, com Base URL `https://nonverbal-api.onrender.com/rapidapi`. Não contém segredo nem chave de consumidor. Para regenerar: `python -m scripts.export_rapidapi`; para conferir: `python -m scripts.export_rapidapi --check`.
 
-A publicação, os planos e o segredo ainda precisam ser configurados pelo responsável nos painéis. O [guia de publicação](docs/RAPIDAPI.md) inclui os textos da listagem, o plano gratuito sugerido e um teste manual via Actions com PNG/WAV sintéticos. A existência desse arquivo não significa que a listagem já está pública.
+A [Nonverbal API está publicada no RapidAPI](https://rapidapi.com/RafaelMayer/api/nonverbal-api), conforme confirmação do responsável em 25/11/2026. A captura da listagem mostra o Basic a US$ 0. O [workflow de conferência](https://github.com/rafaelrmayer/nonverbal-api/actions/runs/45678813778) confirmou 200 nas cinco operações com PNG/WAV sintéticos. O host consumidor confirmado é `nonverbal-api.p.rapidapi.com`.
+
+O [guia de publicação e manutenção](docs/RAPIDAPI.md) registra configuração, limites, textos da listagem e teste manual. As cotas por consumidor e eventuais taxas de banda devem ser conferidas no plano; o teste da conta proprietária não comprova sua aplicação ou disponibilidade contínua.
 
 ## Conferência prática da demonstração
 

@@ -1,6 +1,12 @@
 # Publicação da Nonverbal API no RapidAPI
 
-**Estado em 25/11/2026:** implementação preparada e demonstração conferida pelo responsável no Render. A listagem RapidAPI, o segredo, as cotas e a visibilidade ainda dependem da configuração no painel. Não há URL pública de marketplace confirmada.
+**Estado em 25/11/2026:** o responsável confirmou a publicação da [Nonverbal API no RapidAPI](https://rapidapi.com/RafaelMayer/api/nonverbal-api) e enviou a captura da listagem, com Basic a US$ 0 e categoria Artificial Intelligence/Machine Learning. O Basic “Deprecated” exibido na conta é uma versão anterior do plano, não uma segunda API.
+
+O segredo foi configurado no Render: o responsável confirmou 200 pelo gateway e mostrou `gateway_unauthorized` no acesso direto protegido. O [workflow de conferência](https://github.com/rafaelrmayer/nonverbal-api/actions/runs/45678813778) terminou com sucesso e seus logs registram 200 nas cinco operações (health, models, body, face e vocal), usando imagem branca e WAV silencioso. Nenhuma nova chamada ao gateway foi necessária para registrar esse resultado.
+
+**Host consumidor confirmado:** `nonverbal-api.p.rapidapi.com` (sem número adicional). A Base URL de origem segue sendo `https://nonverbal-api.onrender.com/rapidapi`. Os dois endereços têm funções diferentes.
+
+Os detalhes de quota e taxa de banda não aparecem na captura enviada. A seção de plano abaixo mantém os valores definidos para o piloto como referência de configuração; conferir sua exibição no Pricing. A execução bem-sucedida da conta proprietária não verifica cotas de uma conta consumidora, carga ou disponibilidade contínua.
 
 ## Operações importadas
 
@@ -20,7 +26,7 @@ Base URL de origem: **https://nonverbal-api.onrender.com/rapidapi**.
 
 Não acrescente /rapidapi aos cinco caminhos: o prefixo já está na Base URL. Não use o endereço do painel Render. Root HTML, espelho, vídeo, mãos detalhadas, assets, Swagger e OpenAPI não são operações dessa listagem. Não existe endpoint HTTP de vídeo nem de mãos detalhadas.
 
-## Configuração após o merge
+## Configuração e manutenção (listagem já publicada)
 
 1. Aguarde o deploy no Render ficar Live. O serviço e a demonstração continuam no mesmo endereço, com o health check nativo do Render em /health.
 2. No RapidAPI Studio, crie o projeto **Nonverbal API**, inicialmente privado, usando a importação **OpenAPI** por arquivo ou URL acima. Confirme a presença das cinco operações e a Base URL com /rapidapi.
@@ -32,7 +38,7 @@ Não acrescente /rapidapi aos cinco caminhos: o prefixo já está na Base URL. N
 
 O consumidor usa sua própria X-RapidAPI-Key e X-RapidAPI-Host. O proxy acrescenta X-RapidAPI-Proxy-Secret no lado servidor; não peça esse segredo ao consumidor nem o inclua no OpenAPI. O monitor de health opcional do RapidAPI precisa enviar o segredo se usar a Base URL protegida; o teste da operação pelo gateway é distinto do health check público do Render.
 
-## Plano inicial sugerido
+## Plano do piloto: referência para conferência
 
 Manter o mesmo recorte gratuito já usado nos outros pilotos:
 
@@ -41,13 +47,13 @@ Manter o mesmo recorte gratuito já usado nos outros pilotos:
 - Rate limit: 10 requisições por minuto.
 - PRO/ULTRA/MEGA desativados por enquanto.
 
-Conferir a tela pública de preço: assinatura zero não garante ausência de taxas separadas da plataforma, como banda excedente. Não anunciar “sem qualquer cobrança” se houver taxa de banda. As cotas valem no RapidAPI, não na origem pública; a conta proprietária pode ter tratamento diferente de uma conta consumidora. Estes são valores para configurar, não cotas que o código já aplica.
+Conferir a tela pública de preço: assinatura zero não garante ausência de taxas separadas da plataforma, como banda excedente. Não anunciar “sem qualquer cobrança” se houver taxa de banda. As cotas valem no RapidAPI, não na origem pública; a conta proprietária pode ter tratamento diferente de uma conta consumidora. Estes valores são configuração do plano, não cotas aplicadas pelo código da origem.
 
 ## Teste das cinco operações via GitHub Actions
 
 Depois do merge e da criação da listagem, abra o repositório → Settings → Secrets and variables → Actions:
 
-- **Variable:** `NONVERBAL_RAPIDAPI_HOST`, com o host exibido no snippet do RapidAPI (terminando em .p.rapidapi.com), sem https://, barras ou caminho.
+- **Variable:** `NONVERBAL_RAPIDAPI_HOST`, com `nonverbal-api.p.rapidapi.com`, confirmado no snippet de getHealth; sem https://, barras ou caminho.
 - **Secret:** `NONVERBAL_RAPIDAPI_KEY`, com uma chave consumidora da aplicação de teste RapidAPI. Não usar o Proxy Secret aqui.
 
 Abra Actions → **Conferir Nonverbal no RapidAPI** → Run workflow. Faz cinco chamadas, sem reenvio automático, usando imagem branca gerada e um segundo de WAV silencioso. Espera health/modelos válidos, no_pose, no_face e pitch indeterminado em silêncio. Não envia imagens ou vozes de pessoas, não imprime credenciais e não segue redirecionamentos com a chave.
@@ -55,6 +61,8 @@ Abra Actions → **Conferir Nonverbal no RapidAPI** → Run workflow. Faz cinco 
 O script também pode ser usado localmente: `python -m scripts.rapidapi_smoke`, com as duas variáveis no ambiente. O workflow só roda manualmente e não transforma a listagem em pública. Um resultado aprovado verifica encaminhamento e contratos sintéticos; não valida cotas por consumidor, precisão real, carga ou disponibilidade contínua.
 
 ## Textos para a listagem
+
+A captura enviada mostra o link de importação OpenAPI no início do API Overview. Se ele estiver no campo de descrição longa, substitua-o pelo texto abaixo. O arquivo OpenAPI é usado na importação; não substitui a apresentação do produto.
 
 **Nome:** Nonverbal API
 
