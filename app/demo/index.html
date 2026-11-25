@@ -32,6 +32,7 @@
     <section class="workspace" aria-label="Experimente a análise corporal">
       <aside class="control-panel">
         <h2>Escolha a imagem</h2>
+        <label class="field-label" for="photoChannel">Tipo de análise</label><select id="photoChannel"><option value="body">Corpo</option><option value="face">Rosto e abertura dos olhos/boca</option></select>
         <div class="source-tabs" role="tablist" aria-label="Origem da imagem">
           <button id="cameraTab" type="button" role="tab" aria-selected="true" aria-controls="cameraPanel" tabindex="0">Câmera</button>
           <button id="fileTab" type="button" role="tab" aria-selected="false" aria-controls="filePanel" tabindex="-1">Arquivo</button>
@@ -68,7 +69,8 @@
         </div>
         <p id="stageCaption" class="stage-caption">Sem captura ou envio automático. Câmera e resultado usam a mesma orientação, sem espelhamento.</p>
         <div class="result-heading"><h2>Observações corporais</h2><span id="resultSummary" role="status">Aguardando uma imagem</span></div>
-        <div class="arm-grid"><article class="arm-card"><span class="small-label">Braço esquerdo</span><h3 id="leftRelation">Sem análise</h3><p id="leftReason">O resultado aparecerá após o envio.</p></article><article class="arm-card"><span class="small-label">Braço direito</span><h3 id="rightRelation">Sem análise</h3><p id="rightReason">O resultado aparecerá após o envio.</p></article></div>
+        <div class="arm-grid" id="bodyPhotoResults"><article class="arm-card"><span class="small-label">Braço esquerdo</span><h3 id="leftRelation">Sem análise</h3><p id="leftReason">O resultado aparecerá após o envio.</p></article><article class="arm-card"><span class="small-label">Braço direito</span><h3 id="rightRelation">Sem análise</h3><p id="rightReason">O resultado aparecerá após o envio.</p></article></div>
+        <section id="facePhotoResults" class="face-measures" hidden><h3>Medidas faciais por foto</h3><dl><div><dt>Boca</dt><dd id="photoMouth">—</dd></div><div><dt>Olho esquerdo</dt><dd id="photoLeftEye">—</dd></div><div><dt>Olho direito</dt><dd id="photoRightEye">—</dd></div></dl><p id="photoFaceNote">Razões geométricas, não porcentagens ou confiança. Uma imagem é enviada à API após seu clique.</p></section>
         <details class="technical"><summary>Ver resposta JSON</summary><pre id="responseJson" tabindex="0">Nenhuma resposta recebida.</pre></details>
       </div>
     </section>
@@ -80,6 +82,8 @@
     <section class="mirror-workspace" aria-label="Espelho local da câmera">
       <aside class="control-panel">
         <h2>Vamos experimentar?</h2><p>Enquadre o corpo e deixe espaço para se movimentar. Até duas pessoas podem aparecer.</p>
+        <label class="field-label" for="mirrorSource">Origem do movimento</label><select id="mirrorSource"><option value="camera">Câmera ao vivo</option><option value="file">Arquivo de vídeo local</option></select>
+        <div id="videoFileGroup" hidden><label class="field-label" for="mirrorVideoFile">Escolher vídeo</label><input id="mirrorVideoFile" type="file" accept="video/mp4,video/webm,video/quicktime"><p id="videoFileNote" class="privacy-note">Até 100 MiB, 60 segundos e 4 milhões de pixels. O arquivo fica no navegador, sem áudio ou upload.</p></div>
         <label class="field-label" for="facing">Câmera preferida</label><select id="facing"><option value="user">Frontal</option><option value="environment">Traseira</option></select>
         <fieldset class="mirror-modules"><legend>Módulos do espelho</legend>
           <label class="mirror-option"><input id="detailBody" type="checkbox" checked> Corpo</label>
@@ -90,13 +94,15 @@
         <label class="mirror-option"><input id="showFaceMeasures" type="checkbox" checked> Mostrar medidas de abertura</label>
         <label class="mirror-option"><input id="handTriangles" type="checkbox" checked> Fechar triângulo com dois dedos</label>
         <button id="startMirror" class="primary wide" type="button">Iniciar espelho</button>
+        <button id="pauseVideo" class="secondary wide" type="button" hidden>Pausar vídeo</button>
         <button id="stopMirror" class="secondary wide stop-mirror" type="button" disabled>Parar câmera</button>
+        <label class="mirror-option"><input id="showTrails" type="checkbox" checked> Rastros de punhos e tornozelos</label>
         <label class="mirror-option"><input id="onlyPoints" type="checkbox"> Só pontinhos</label>
         <label class="mirror-option"><input id="flip" type="checkbox" checked> Imagem espelhada</label>
         <p id="mirrorStatus" role="status">Câmera desligada.</p>
         <p class="privacy-note">Trocar de modo, ocultar a aba ou sair desta página desliga a câmera. Para voltar, clique em iniciar.</p>
       </aside>
-      <div class="mirror-panel"><div class="mirror-stage"><video id="mirrorVideo" autoplay muted playsinline aria-hidden="true"></video><canvas id="mirrorCanvas" aria-label="Pontos e contornos de corpo, mãos e rosto acompanhando a imagem" hidden></canvas><div id="mirrorPlaceholder"><span aria-hidden="true">✦</span><strong>Seu movimento vira desenho.</strong><p>A câmera só liga quando você iniciar.</p></div></div><p class="mirror-caption">Para explorar os dedos ou o rosto, aproxime-se da câmera e mantenha a região inteira no quadro. O modelo pode falhar com pouca luz, oclusão ou movimento rápido.</p><section id="faceMeasures" class="face-measures" aria-labelledby="faceMeasuresTitle">
+      <div class="mirror-panel"><div class="mirror-stage"><video id="mirrorVideo" autoplay muted playsinline aria-hidden="true"></video><canvas id="mirrorCanvas" aria-label="Pontos e contornos de corpo, mãos e rosto acompanhando a imagem" hidden></canvas><div id="mirrorPlaceholder"><span aria-hidden="true">✦</span><strong>Seu movimento vira desenho.</strong><p>A câmera só liga quando você iniciar.</p></div></div><p class="mirror-caption">Para explorar os dedos ou o rosto, aproxime-se da câmera e mantenha a região inteira no quadro. O modelo pode falhar com pouca luz, oclusão ou movimento rápido.</p><section class="face-measures" id="motionMeasures"><h3>Movimento no plano da imagem</h3><p id="motionStatus">Aguardando uma pose para acompanhar punhos e tornozelos.</p><dl id="motionValues"></dl><p>Distância nos últimos 2 segundos, em frações da diagonal da imagem. Velocidade por segundo entre as duas últimas amostras. Movimentar a câmera também altera os valores; não são metros ou avaliação de comportamento.</p></section><section id="faceMeasures" class="face-measures" aria-labelledby="faceMeasuresTitle">
           <h3 id="faceMeasuresTitle">Abertura relativa dos olhos e da boca</h3>
           <dl><div><dt>Boca</dt><dd id="mouthRatio">—</dd></div><div><dt>Olho esquerdo</dt><dd id="leftEyeRatio">—</dd></div><div><dt>Olho direito</dt><dd id="rightEyeRatio">—</dd></div></dl>
           <p id="faceMeasureStatus">Aguardando um rosto com pontos suficientes no quadro.</p>

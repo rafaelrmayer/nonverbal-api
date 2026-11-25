@@ -159,3 +159,29 @@ test('leaving the page stops the preview and clears captured data',async()=>{
     assert.equal(posts.length,0);
   } finally {await close();}
 });
+
+test('facial photo preview sends one explicit JPEG to the facial endpoint',async()=>{
+ const {page,posts,close}=await setup({mobile:true});const facePosts=[];
+ try{
+  await page.route('**/health',r=>r.fulfill({json:{service:'nonverbal-api',body_model_ready:true,face_model_available:true}}));
+  await page.route('**/v1/face/analyze',async r=>{
+   facePosts.push(r.request());const frame=await page.locator('#resultCanvas').evaluate(c=>({width:c.width,height:c.height}));
+   await r.fulfill({json:{version:'0.1.0',experimental:true,channel:'face',status:'observed',frame,detected_faces_capped:1,
+    landmarks:[{id:13,x:.5,y:.4},{id:14,x:.5,y:.6}],measures:{mouth:{value:.2,reason:'geometry_observed'},leftEye:{value:.1,reason:'geometry_observed'},rightEye:{value:.1,reason:'geometry_observed'}}}});
+  });
+  await page.locator('#photoChannel').selectOption('face');
+  await page.getByRole('tab',{name:'Arquivo',exact:true}).click();
+  await page.locator('#imageFile').setInputFiles(image);
+  await page.waitForFunction(()=>!document.getElementById('analyzeFile').disabled);
+  assert.equal(facePosts.length,0);
+  await page.getByRole('button',{name:'Analisar imagem',exact:true}).click();
+  await page.getByText('Medidas faciais observadas',{exact:true}).waitFor();
+  assert.equal(facePosts.length,1);assert.equal(posts.length,0);
+  assert.equal(facePosts[0].headers()['content-type'],'image/jpeg');
+  assert.equal(await page.locator('#photoMouth').textContent(),'0,20 ×');
+  assert.equal(await page.locator('#bodyPhotoResults').isHidden(),true);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.getByRole('button',{name:'Limpar imagem e resultado',exact:true}).click();
+  assert.equal(await page.locator('#photoMouth').textContent(),'—');
+ }finally{await close();}
+});

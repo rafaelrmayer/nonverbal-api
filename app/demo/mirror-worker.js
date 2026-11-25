@@ -47,7 +47,7 @@ self.onmessage=async({data})=>{
       const poses=landmarker?selectBody(landmarker.detectForVideo(bitmap,data.timestamp).landmarks):[];
       const hands=handLandmarker?selectHands(handLandmarker.detectForVideo(bitmap,data.timestamp).landmarks):[];
       const faces=faceLandmarker?selectFaces(faceLandmarker.detectForVideo(bitmap,data.timestamp).faceLandmarks):[];
-      self.postMessage({type:'result',poses,hands,faces,bitmap},[bitmap]);
+      self.postMessage({type:'result',poses,hands,faces,bitmap,time:data.time},[bitmap]);
     }catch{bitmap.close();self.postMessage({type:'error',stage:'frame'});}
   }
 };

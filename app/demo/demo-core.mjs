@@ -91,6 +91,6 @@ export function httpError(status) {
     415: 'O serviço não aceitou o formato da imagem.',
     422: 'Não foi possível processar esta imagem. Escolha outro JPEG ou PNG estático.',
     429: 'A API está ocupada com outra análise. Aguarde e clique para tentar novamente.',
-    503: 'O modelo corporal está indisponível. Verifique o serviço e tente novamente.'
+    503: 'O modelo escolhido está indisponível. Verifique o serviço e tente novamente.'
   })[status] ?? 'A análise não foi concluída. Verifique o serviço e tente novamente.';
 }
