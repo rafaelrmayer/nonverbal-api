@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {FaceLandmarker} from '@mediapipe/tasks-vision';
+import {readFileSync} from 'node:fs';
 import {FACE_GROUPS,FACE_EDGES,facePoints,faceMeasures} from '../app/demo/face-core.mjs';
 const sample=()=>[
  {id:61,x:.3,y:.7},{id:291,x:.7,y:.7},{id:13,x:.5,y:.68},{id:14,x:.5,y:.76},
@@ -9,6 +10,7 @@ const sample=()=>[
 test('face contours match pinned SDK and contain only requested regions',()=>{
  for(const [name,edges]of Object.entries(FACE_GROUPS))assert.deepEqual(edges,FaceLandmarker['FACE_LANDMARKS_'+name].map(({start,end})=>[start,end]));
  assert.equal(FACE_EDGES.length,124);
+ assert.deepEqual(JSON.parse(readFileSync(new URL('../app/demo/face-connections.json',import.meta.url),'utf8')),FACE_GROUPS);
  const landmarks=Array.from({length:478},()=>({x:.5,y:.5}));
  const faces=facePoints([landmarks,landmarks,landmarks]);
  assert.equal(faces.length,2);

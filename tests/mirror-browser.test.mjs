@@ -1,19 +1,25 @@
 // CI only: real same-origin WASM + synthetic frames and Chromium fake camera.
 import {test,before,after} from 'node:test';
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
+import {readFileSync,unlinkSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {chromium} from 'playwright';
 const origin='http://127.0.0.1:8033';
-let browser,server;
+let browser,server,videoFixture;
+const clipPath=join(tmpdir(),'nonverbal-clip-'+process.pid+'.webm');
 before(async()=>{
+ const generated=spawnSync('ffmpeg',['-y','-f','lavfi','-i','color=c=blue:s=320x240:r=10','-t','4','-c:v','libvpx','-an',clipPath],{encoding:'utf8'});
+ assert.equal(generated.status,0,generated.stderr);videoFixture={name:'synthetic.webm',mimeType:'video/webm',buffer:readFileSync(clipPath)};
  server=spawn('python',['-m','uvicorn','app.main:app','--host','127.0.0.1','--port','8033'],{stdio:'ignore'});
  let ready=false;
  for(let i=0;i<80;i++){try{if((await fetch(origin+'/health')).ok){ready=true;break;}}catch{}await delay(250);}
  assert.ok(ready);
  browser=await chromium.launch({args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
 });
-after(async()=>{await browser?.close();server?.kill();});
+after(async()=>{await browser?.close();server?.kill();try{unlinkSync(clipPath);}catch{}});
 async function setup(init){
  const context=await browser.newContext({permissions:['camera'],viewport:{width:390,height:844}});
  const page=await context.newPage();const requests=[],errors=[];
@@ -282,6 +288,77 @@ test('facial contours and ratios render and clear on lost detection, options and
   await page.getByRole('button',{name:'Parar câmera',exact:true}).click();
   assert.equal(await page.locator('#mouthRatio').textContent(),'—');
   assert.equal(await page.locator('#detailFace').isEnabled(),true);
+  assert.ok(requests.every(r=>r.method==='GET'&&new URL(r.url).origin===origin));assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('local video runs real models without camera or uploads, pauses and clears blob',{timeout:120000},async()=>{
+ const {page,requests,errors,close}=await setup(()=>{
+  navigator.mediaDevices.getUserMedia=async()=>{throw new Error('Video file must not request camera');};
+  const revoke=URL.revokeObjectURL.bind(URL);window.revoked=[];URL.revokeObjectURL=url=>{window.revoked.push(url);revoke(url);};
+ });
+ try{
+  await page.locator('#mirrorSource').selectOption('file');
+  await page.locator('#mirrorVideoFile').setInputFiles(videoFixture);
+  assert.ok(!requests.some(r=>r.url.includes('/mirror-model/')));
+  await page.getByRole('button',{name:'Iniciar vídeo',exact:true}).click();
+  await page.waitForFunction(()=>!document.getElementById('mirrorCanvas').hidden,null,{timeout:90000});
+  assert.equal(await page.locator('#mirrorVideo').evaluate(v=>v.srcObject),null);
+  assert.equal(await page.locator('#mirrorVideo').evaluate(v=>v.muted),true);
+  await page.getByRole('button',{name:'Pausar vídeo',exact:true}).click();
+  const time=await page.locator('#mirrorVideo').evaluate(v=>v.currentTime);await delay(200);
+  assert.equal(await page.locator('#mirrorVideo').evaluate(v=>v.currentTime),time);
+  await page.getByRole('button',{name:'Continuar vídeo',exact:true}).click();
+  await page.waitForFunction(()=>document.getElementById('mirrorStatus').textContent.startsWith('Vídeo concluído'),null,{timeout:15000});
+  assert.equal(await page.locator('#mirrorCanvas').isVisible(),true);
+  assert.ok(requests.every(r=>r.method==='GET'&&new URL(r.url).origin===origin));
+  await page.getByRole('button',{name:'Parar vídeo',exact:true}).click();
+  assert.equal(await page.locator('#mirrorVideo').getAttribute('src'),null);
+  assert.equal(await page.locator('#mirrorVideoFile').evaluate(v=>v.files.length),0);
+  assert.ok(await page.evaluate(()=>window.revoked.length>0));
+  assert.equal(await page.locator('#mirrorCanvas').isHidden(),true);assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('corrupt video is rejected before models load and clears its object URL',async()=>{
+ const {page,requests,errors,close}=await setup();
+ try{
+  await page.locator('#mirrorSource').selectOption('file');
+  await page.locator('#mirrorVideoFile').setInputFiles({name:'broken.mp4',mimeType:'video/mp4',buffer:Buffer.from('not a video')});
+  await page.getByRole('button',{name:'Iniciar vídeo',exact:true}).click();
+  await page.getByRole('alert').waitFor();
+  assert.match(await page.getByRole('alert').textContent(),/codec|inválido/);
+  assert.ok(!requests.some(r=>r.url.includes('/mirror-config')));
+  assert.equal(await page.locator('#mirrorVideo').getAttribute('src'),null);assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('motion uses bounded local samples and clears on ambiguous or lost pose',async()=>{
+ const {page,requests,errors,close}=await setup(()=>{
+  let frame=0;
+  window.Worker=class{
+   constructor(){this.active=true;}
+   postMessage(data){
+    if(data.type==='init')setTimeout(()=>{if(this.active)this.onmessage({data:{type:'ready'}});},10);
+    if(data.type==='frame')setTimeout(()=>{
+     if(!this.active){data.bitmap.close();return;}
+     frame++;const pose=[{id:15,x:.2+(frame%20)*.01,y:.5}];
+     this.onmessage({data:{type:'result',poses:window.noPose?[]:window.twoPoses?[pose,pose]:[pose],hands:[],faces:[],bitmap:data.bitmap,time:data.time}});
+    },10);
+   }
+   terminate(){this.active=false;}
+  };
+ });
+ try{
+  await page.getByRole('button',{name:'Iniciar espelho',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('#motionValues dd').textContent!=='—');
+  await page.evaluate(()=>{window.twoPoses=true;});
+  await page.getByText('Mais de uma pose detectada. Rastros interrompidos para não misturar pessoas.',{exact:true}).waitFor();
+  assert.equal(await page.locator('#motionValues dd').first().textContent(),'—');
+  await page.evaluate(()=>{window.noPose=true;});
+  await page.getByText('Aguardando uma pose para acompanhar punhos e tornozelos.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Parar câmera',exact:true}).click();
+  assert.equal(await page.locator('#motionValues dd').first().textContent(),'—');
   assert.ok(requests.every(r=>r.method==='GET'&&new URL(r.url).origin===origin));assert.deepEqual(errors,[]);
  }finally{await close();}
 });

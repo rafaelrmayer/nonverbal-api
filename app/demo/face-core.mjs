@@ -29,3 +29,21 @@ export function faceMeasures(points,width,height){
     leftEye:ratio([362,263],[[386,374],[385,380]],4),
     rightEye:ratio([33,133],[[159,145],[158,153]],4)};
 }
+
+export function validateFaceResult(data,frame){
+  const statuses=['observed','partial','undetermined','no_face','multiple_faces'];
+  const reasons=['geometry_observed','missing_landmarks','region_too_small','no_face','multiple_faces'];
+  const single=data&&!['no_face','multiple_faces'].includes(data.status);
+  if(!data||data.version!=='0.1.0'||data.experimental!==true||data.channel!=='face'||!statuses.includes(data.status)||
+    data.frame?.width!==frame.width||data.frame?.height!==frame.height||!Array.isArray(data.landmarks)||
+    data.detected_faces_capped!==(single?1:data.status==='no_face'?0:2)||(!single&&data.landmarks.length)||
+    new Set(data.landmarks.map(p=>p?.id)).size!==data.landmarks.length||
+    data.landmarks.some(p=>!p||!FACE_IDS.has(p.id)||!Number.isFinite(p.x)||!Number.isFinite(p.y)||p.x<0||p.x>1||p.y<0||p.y>1)||
+    !data.measures||Object.keys(data.measures).length!==3||['mouth','leftEye','rightEye'].some(key=>{
+      const m=data.measures[key];return !m||!reasons.includes(m.reason)||
+      (m.reason==='geometry_observed'?typeof m.value!=='number'||!Number.isFinite(m.value)||m.value<0:m.value!==null);
+    }))throw new Error('Resposta facial incompatível ou inválida. Nenhuma medida foi exibida.');
+  const determined=Object.values(data.measures).filter(m=>m.value!==null).length;
+  if((!single&&Object.values(data.measures).some(m=>m.reason!==data.status))||(single&&data.status!==(determined===3?'observed':determined?'partial':'undetermined')))throw new Error('Estado facial incompatível com as medidas.');
+  return data;
+}

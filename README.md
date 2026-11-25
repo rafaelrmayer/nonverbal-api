@@ -2,7 +2,7 @@
 
 **Autor:** Rafael Ricardo Mayer · **Versão:** 0.1.0 · **Estado:** protótipo corporal hospedado no Render; ainda sem publicação no marketplace.
 
-API independente em Python/FastAPI para **descrever sinais corporais observáveis em uma imagem**, sem inferir emoção, intenção, atenção, personalidade ou condição clínica. A API desta primeira versão não analisa rosto, voz, microexpressões ou vídeo e não interpreta automaticamente a comunicação de pessoas autistas.
+API independente em Python/FastAPI para **descrever sinais corporais observáveis em uma imagem**, sem inferir emoção, intenção, atenção, personalidade ou condição clínica. A API oferece contornos faciais e geometria por foto, mas não interpreta expressões, voz, microexpressões ou vídeo e não interpreta automaticamente a comunicação de pessoas autistas.
 
 O repositório foi criado como público por decisão do responsável. Demonstração hospedada: https://nonverbal-api.onrender.com/. Imagens de pessoas e pesos do modelo não são versionados.
 
@@ -35,7 +35,7 @@ Os dois modos compartilham a página, mas cada um mantém seu fluxo de processam
 
 O espelho agora também oferece **Rosto e contornos**: linhas de olhos, sobrancelhas, lábios e mandíbula e medidas opcionais de abertura relativa dos olhos e da boca. As medidas são razões geométricas, não porcentagens, emoções, atenção ou diagnóstico. São exibidas apenas quando há um rosto detectado e pontos suficientes; dois rostos podem ter contornos desenhados sem atribuição de identidade.
 
-Corpo, mãos e rosto podem ser selecionados antes de iniciar. Usar só rosto reduz o processamento e evita baixar os outros modelos para aquela sessão. O modelo facial adicional tem aproximadamente 4 MB, é servido pelo próprio site e validado por SHA-256. Não há envio de frames, áudio, reconhecimento de identidade ou armazenamento de rostos. Isso pertence ao espelho no navegador: **não adiciona um endpoint facial à API HTTP**. A verificação com câmera física é feita após a implantação; testes com pontos sintéticos não medem precisão real.
+Corpo, mãos e rosto podem ser selecionados antes de iniciar. Usar só rosto reduz o processamento e evita baixar os outros modelos para aquela sessão. O modelo facial adicional tem aproximadamente 4 MB, é servido pelo próprio site e validado por SHA-256. Não há envio de frames, áudio, reconhecimento de identidade ou armazenamento de rostos. Isso pertence ao espelho no navegador: o endpoint `/v1/face/analyze` também oferece contornos e medidas por foto com envio explícito. A verificação com câmera física é feita após a implantação; testes com pontos sintéticos não medem precisão real.
 
 ## Endpoints
 
@@ -46,6 +46,7 @@ Corpo, mãos e rosto podem ser selecionados antes de iniciar. Usar só rosto red
 | GET | `/health` | Estado do processo e `body_model_ready`. Health 200 não garante modelo disponível. |
 | GET | `/v1/models` | Modelo, hash, disponibilidade, recursos e canais não implementados. |
 | POST | `/v1/body/analyze` | Imagem → pontos corporais e observações geométricas. |
+| POST | `/v1/face/analyze` | JPEG/PNG → contornos faciais e razões de abertura; sem escolher entre múltiplos rostos. |
 | GET | `/docs` | Interface Swagger para explorar o contrato. |
 | GET | `/openapi.json` | Definição OpenAPI. |
 
@@ -127,3 +128,9 @@ A regra e a validação ficam separadas do detector. Não há chamada a LLM, RAG
 O limite de uma análise por processo evita fila de inferências dentro do aplicativo; requisições adicionais recebem 429, com `Retry-After`. Isso não substitui autenticação, rate limiting global ou proteção da infraestrutura. O recurso limita a concorrência, não mede capacidade de produção.
 
 Veja o [registro da validação inicial e do contêiner](docs/VALIDATION.md), [docs/MODEL.md](docs/MODEL.md) para procedência, limites e evidências de teste e [docs/ROADMAP.md](docs/ROADMAP.md) para o recorte inicial e próximos passos.
+
+## Vídeo e trajetórias locais
+
+No espelho, selecione **Arquivo de vídeo local** ou use a câmera. Vídeos MP4/WebM/MOV dependem do codec suportado pelo navegador e têm limites de 100 MiB, 60 segundos e 4 milhões de pixels por frame. Não há upload, análise de áudio ou endpoint de vídeo. O processamento usa frames amostrados durante a reprodução, com pausa/continuação.
+
+Os rastros de punhos e tornozelos usam até dois segundos de amostras em memória e só uma pose detectada. Distâncias são relativas à diagonal da imagem; não são metros, velocidade física ou classificação de comportamento. Veja [VIDEO.md](docs/VIDEO.md) e [FACE_PHOTO.md](docs/FACE_PHOTO.md) para contratos, limites e testes.

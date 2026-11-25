@@ -1,10 +1,12 @@
 import {fitSize, inspectImageBytes, MAX_FILE_BYTES, MAX_SEND_BYTES, CONNECTIONS,
   validateResult, drawablePoints, describeArm, resultSummary, httpError} from './demo-core.mjs';
+import {FACE_EDGES,validateFaceResult} from './face-core.mjs';
 
 const byId = id => document.getElementById(id);
 const video = byId('cameraVideo');
 const canvas = byId('resultCanvas');
-const state = {mode: 'camera', stream: null, cameraPending: false, cameraEpoch: 0,
+let serviceEpoch=0;
+const state = {channel:'body',mode: 'camera', stream: null, cameraPending: false, cameraEpoch: 0,
   frame: null, blob: null, result: null, busy: false, version: 0, abort: null, service: 'checking'};
 const text = (id, value) => { byId(id).textContent = value; };
 const showError = message => { text('errorBox', message); byId('errorBox').hidden = !message; };
@@ -12,6 +14,7 @@ const showError = message => { text('errorBox', message); byId('errorBox').hidde
 function refresh() {
   const live = !!state.stream;
   const canCapture = live && !state.frame && !video.paused && video.readyState >= 2 && video.videoWidth > 0;
+  byId('photoChannel').disabled=state.busy;
   byId('startCamera').disabled = live || state.cameraPending;
   byId('stopCamera').disabled = !live && !state.cameraPending;
   byId('cameraFacing').disabled = live || state.cameraPending;
@@ -27,6 +30,9 @@ function refresh() {
 
 function resetResult() {
   state.result = null;
+  byId('bodyPhotoResults').hidden=state.channel==='face';
+  byId('facePhotoResults').hidden=state.channel!=='face';
+  for(const id of ['photoMouth','photoLeftEye','photoRightEye'])text(id,'—');
   for (const side of ['left','right']) {
     text(side + 'Relation', 'Sem análise');
     text(side + 'Reason', 'O resultado aparecerá após o envio.');
@@ -138,14 +144,14 @@ function renderFrame() {
   const context = canvas.getContext('2d');
   context.drawImage(state.frame, 0, 0);
   if (state.result && byId('showPoints').checked) {
-    const points = new Map(drawablePoints(state.result).map(point => [point.id, point]));
+    const points = new Map((state.channel==='face'?state.result.landmarks:drawablePoints(state.result)).map(point => [point.id, point]));
     const position = point => [point.x * canvas.width, point.y * canvas.height];
     context.strokeStyle = '#80c4ff';
     context.lineWidth = Math.max(2, canvas.width / 330);
     context.lineCap = 'round';
     context.shadowColor = '#061633';
     context.shadowBlur = 3;
-    for (const [a, b] of CONNECTIONS) {
+    for (const [a, b] of (state.channel==='face'?FACE_EDGES:CONNECTIONS)) {
       if (!points.has(a) || !points.has(b)) continue;
       context.beginPath();
       context.moveTo(...position(points.get(a)));
@@ -206,18 +212,22 @@ async function analyze(version) {
   let timedOut = false;
   const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 30000);
   try {
-    const response = await fetch('/v1/body/analyze', {method: 'POST', body: state.blob,
+    const response = await fetch('/v1/'+state.channel+'/analyze', {method: 'POST', body: state.blob,
       headers: {'Content-Type': 'image/jpeg'}, signal: controller.signal, cache: 'no-store'});
     if (!response.ok) throw new Error(httpError(response.status));
     const data = await response.json();
     if (version !== state.version) return;
-    state.result = validateResult(data, state.frame);
-    for (const arm of state.result.arms) {
+    state.result = state.channel==='face'?validateFaceResult(data,state.frame):validateResult(data, state.frame);
+    if(state.channel==='face'){
+      for(const [id,key]of [['photoMouth','mouth'],['photoLeftEye','leftEye'],['photoRightEye','rightEye']]){const v=data.measures[key].value;text(id,v===null?'—':v.toLocaleString('pt-BR',{maximumFractionDigits:2,minimumFractionDigits:2})+' ×');}
+      text('photoFaceNote',data.status==='multiple_faces'?'Mais de um rosto detectado. Nenhuma pessoa foi escolhida.':data.status==='no_face'?'Nenhum rosto detectado nesta imagem.':'Altura dividida pela largura; — indica pontos insuficientes ou região pequena. Não interpreta emoções ou intenções.');
+    }
+    for (const arm of (state.result.arms??[])) {
       const description = describeArm(arm);
       text(arm.side + 'Relation', description.title);
       text(arm.side + 'Reason', description.reason);
     }
-    text('resultSummary', resultSummary(state.result));
+    text('resultSummary',state.channel==='face'?({observed:'Medidas faciais observadas',partial:'Medidas faciais parciais',undetermined:'Medidas indeterminadas',no_face:'Nenhum rosto detectado',multiple_faces:'Mais de um rosto detectado'}[data.status]):resultSummary(state.result));
     text('responseJson', JSON.stringify(state.result, null, 2));
     text('stageTitle', 'Imagem analisada');
     text('stageCaption', state.stream ?
@@ -277,6 +287,7 @@ function selectMode(mode) {
 }
 
 async function checkService() {
+  const epoch=++serviceEpoch;
   byId('checkService').disabled = true;
   state.service = 'checking';
   text('serviceState', 'Verificando o modelo…');
@@ -286,19 +297,23 @@ async function checkService() {
   try {
     const response = await fetch('/health', {signal: controller.signal, cache: 'no-store'});
     const data = await response.json();
-    if (!response.ok || data.service !== 'nonverbal-api' || data.body_model_ready !== true) throw new Error();
+    if(epoch!==serviceEpoch)return;
+    if (!response.ok || data.service !== 'nonverbal-api' || (state.channel==='face'?data.face_model_available!==true:data.body_model_ready!==true)) throw new Error();
     state.service = 'ready';
-    text('serviceState', 'Modelo corporal disponível');
+    text('serviceState', state.channel==='face'?'Modelo facial disponível; primeira análise pode demorar.':'Modelo corporal disponível');
   } catch {
+    if(epoch!==serviceEpoch)return;
     state.service = 'unavailable';
     text('serviceState', 'Modelo indisponível no momento');
   } finally {
     clearTimeout(timer);
+    if(epoch!==serviceEpoch)return;
     byId('checkService').disabled = false;
     refresh();
   }
 }
 
+byId('photoChannel').addEventListener('change',()=>{state.channel=byId('photoChannel').value;clearFrame();showError('');checkService();});
 byId('startCamera').addEventListener('click', startCamera);
 byId('stopCamera').addEventListener('click', () => stopCamera());
 byId('capture').addEventListener('click', capture);

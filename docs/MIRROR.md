@@ -1,6 +1,6 @@
 # Espelho de pontinhos
 
-A aba **Espelho de pontinhos** na página inicial acompanha movimentos da câmera no próprio navegador. Ela compartilha a tela com **Analisar uma foto**, mantendo processamento separado da API de imagens. O endereço `/mirror` abre a mesma página com o espelho selecionado; `/#mirror` e `/#photo` também selecionam o modo. A API continua sem endpoint de vídeo.
+A aba **Espelho de pontinhos** na página inicial acompanha movimentos da câmera no próprio navegador. Ela compartilha a tela com **Analisar uma foto**, mantendo processamento separado da API de imagens. O endereço `/mirror` abre a mesma página com o espelho selecionado; `/#mirror` e `/#photo` também selecionam o modo. A API continua sem endpoint de vídeo; o arquivo é reproduzido e processado localmente, conforme [VIDEO.md](VIDEO.md).
 
 ## Fluxo e privacidade
 
@@ -47,7 +47,7 @@ O Hand Landmarker é um segundo modelo executado no mesmo worker, sobre o mesmo 
 
 A linha da palma fecha o ciclo 0–5–9–13–17–0. Com **Fechar triângulo com dois dedos**, uma regra geométrica liga punho (0), ponta do indicador (8) e ponta do médio (12), fechando o caminho. Exige indicador e médio estendidos em relação às articulações intermediárias, anelar e mínimo dobrados, separação e área mínimas. Usa distâncias em pixels, preservando o cálculo sob rotação/espelhamento e proporção da imagem. Não há rótulo de tesoura, tradução de Libras ou interpretação do significado do gesto. Limiares são experimentais; ângulo, tamanho e oclusão podem causar erros ou oscilação.
 
-Se pontos necessários somem ou a condição deixa de valer, o triângulo some no próximo frame processado. Desmarcar sua opção remove o desenho imediatamente. O detalhamento das mãos pode ser desligado antes de iniciar para reduzir consumo de memória e tempo de inferência. Falha no asset de mãos apresenta erro e orienta tentar sem esse detalhamento, sem envio alternativo ao servidor. O contrato da análise por foto continua apenas corporal.
+Se pontos necessários somem ou a condição deixa de valer, o triângulo some no próximo frame processado. Desmarcar sua opção remove o desenho imediatamente. O detalhamento das mãos pode ser desligado antes de iniciar para reduzir consumo de memória e tempo de inferência. Falha no asset de mãos apresenta erro e orienta tentar sem esse detalhamento, sem envio alternativo ao servidor. A análise por foto também possui um endpoint facial separado, conforme [FACE_PHOTO.md](FACE_PHOTO.md).
 
 Testes adicionais cobrem geometria positiva/negativa e rotação, filtragem, encerramento do contorno, renderização/remoção do triângulo com pontos sintéticos e carga real dos dois modelos no worker sobre uma imagem branca. Esses testes não validam detecção de dedos de uma pessoa: após implantar, conferir manualmente com mão inteira próxima à câmera, boa luz, dois dedos abertos, mão aberta e punho fechado.
 
@@ -66,3 +66,5 @@ Os rótulos esquerdo/direito seguem o modelo; espelhar a imagem não troca a atr
 Ao perder a detecção, o próximo frame limpa contornos e medidas anteriores. Parar, ocultar a página ou trocar de experiência também limpa tudo. Os controles dos módulos ficam bloqueados enquanto a sessão está ativa; parar os libera. Não há persistência de coordenadas ou valores. Os valores mudam sem avisos de leitor de tela a cada frame para evitar anúncios contínuos.
 
 A CI testa os três modelos reais juntos e o modelo facial isolado sobre imagem branca, sem buscar pesos dos módulos desativados. Pontos sintéticos verificam contornos, razões, espelhamento/rotação, ausência de evidência, desenho, múltiplos rostos, limpeza e controles. Após o merge e a implantação, testar manualmente rosto inteiro no quadro, piscar, abrir/fechar a boca, modo só pontinhos, desligamento e opções com corpo/mãos. A precisão e o desempenho com câmera física ainda dependem dessa etapa.
+
+O modo de arquivo de vídeo usa os mesmos módulos locais selecionados. Não pede câmera e não envia o arquivo. O rastreamento de movimento e a limpeza de URLs temporárias estão descritos em [VIDEO.md](VIDEO.md).

@@ -43,7 +43,7 @@ def test_health_model_status_and_openapi(client):
     assert session.get('/health').json()['body_model_ready'] is True
     assert session.get('/v1/models').json()['models'][0]['ready'] is True
     schema = session.get('/openapi.json').json()
-    assert len(schema['paths']) == 3
+    assert len(schema['paths']) == 4
     assert set(schema['paths']['/v1/body/analyze']['post']['requestBody']['content']) == {'image/jpeg', 'image/png'}
     assert session.get('/docs').status_code == 200
 

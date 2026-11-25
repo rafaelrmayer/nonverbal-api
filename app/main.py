@@ -13,7 +13,8 @@ from app import hand_model_asset as hand_asset
 from app import face_model_asset as face_asset
 from app.browser_assets import SDK_VERSION, RUNTIME_DIR, RUNTIME_FILES
 from app.pose import PoseEngine, InvalidModelResult
-from app.schemas import BodyResponse
+from app.schemas import BodyResponse, FaceResponse
+from app.face import FaceEngine
 
 MAX_UPLOAD_SECONDS = 10
 
@@ -21,6 +22,13 @@ MAX_UPLOAD_SECONDS = 10
 @asynccontextmanager
 async def lifespan(app):
     app.state.engine = None
+    app.state.face_engine = None
+    app.state.face_model_path = os.environ.get('FACE_MODEL_PATH', 'models/face_landmarker.task')
+    try:
+        face_asset.verify_model(app.state.face_model_path)
+        app.state.face_model_available = True
+    except (OSError, ValueError):
+        app.state.face_model_available = False
     app.state.slots = anyio.CapacityLimiter(1)
     path = os.environ.get('POSE_MODEL_PATH', 'models/pose_landmarker_lite.task')
     try:
@@ -29,13 +37,16 @@ async def lifespan(app):
         # Fixed message: no paths, image bytes, filenames or request contents in logs.
         logging.getLogger(__name__).warning('Modelo corporal indisponível; confira instalação e hash do asset.')
     yield
+    if app.state.face_engine is not None:
+        app.state.face_engine.close()
+        app.state.face_engine = None
     if app.state.engine is not None:
         app.state.engine.close()
         app.state.engine = None
 
 
 app = FastAPI(title='Nonverbal API', version='0.1.0', lifespan=lifespan,
-              description='Protótipo de observações geométricas corporais em uma imagem. Não infere emoção, intenção, atenção ou diagnóstico. A API HTTP não oferece análise facial, vocal ou temporal nesta versão; o espelho da página possui módulos locais próprios.')
+              description='Protótipo de observações geométricas corporais em uma imagem. Não infere emoção, intenção, atenção ou diagnóstico. A API HTTP oferece análise corporal e facial por imagem; vídeo e movimentos são processados localmente na demonstração. Sem análise vocal nesta versão.')
 
 DEMO_DIR = Path(__file__).resolve().parent / 'demo'
 app.mount('/demo-assets', StaticFiles(directory=DEMO_DIR), name='demo-assets')
@@ -130,7 +141,9 @@ def mirror_face_model(checksum: str):
 @app.get('/health', tags=['Health'])
 def health(request: Request):
     return {'status': 'ok', 'service': 'nonverbal-api', 'version': '0.1.0',
-            'body_model_ready': getattr(request.app.state, 'engine', None) is not None}
+            'body_model_ready': getattr(request.app.state, 'engine', None) is not None,
+            'face_model_available': getattr(request.app.state, 'face_model_available', False),
+            'face_model_ready': getattr(request.app.state, 'face_engine', None) is not None}
 
 
 @app.get('/v1/models', tags=['Models'])
@@ -139,8 +152,13 @@ def models(request: Request):
                         'ready': getattr(request.app.state, 'engine', None) is not None,
                         'sha256': MODEL_SHA256, 'experimental': True,
                         'returned_landmarks': 22, 'max_detected_poses': 2,
-                        'supports': ['single_image_body_landmarks', 'wrist_shoulder_image_relation']}],
-            'unsupported_channels': ['facial', 'vocal', 'video'],
+                        'supports': ['single_image_body_landmarks', 'wrist_shoulder_image_relation']},
+                        {'id': 'mediapipe-face-landmarker-float16-v1', 'channel': 'face',
+                             'ready': getattr(request.app.state, 'face_engine', None) is not None,
+                             'asset_available': getattr(request.app.state, 'face_model_available', False),
+                             'sha256': face_asset.MODEL_SHA256, 'experimental': True,
+                             'supports': ['single_image_face_contours', 'opening_ratios']}],
+            'unsupported_channels': ['vocal', 'video'],
             'notice': 'Disponibilidade técnica não significa validação da interpretação.'}
 
 
@@ -163,12 +181,40 @@ def analyze_image(engine, data, media_type):
           openapi_extra={'requestBody': {'required': True, 'content': {
               media: {'schema': {'type': 'string', 'format': 'binary'}} for media in ['image/jpeg', 'image/png']}}})
 async def body(request: Request):
+    return await handle_image_request(request, 'body')
+
+
+@app.post('/v1/face/analyze', response_model=FaceResponse, tags=['Face'],
+          summary='Contornos faciais e razões de abertura em uma imagem',
+          responses={413:{'description':'Mais de 2 MiB ou 4 milhões de pixels'},415:{'description':'Formato diferente de JPEG/PNG'},
+                     408:{'description':'Tempo máximo de envio excedido'},422:{'description':'Imagem inválida ou animada'},
+                     429:{'description':'Uma análise corporal ou facial está em andamento'},503:{'description':'Modelo indisponível ou inválido'}},
+          openapi_extra={'requestBody': {'required': True, 'content': {
+              media: {'schema': {'type': 'string', 'format': 'binary'}} for media in ['image/jpeg', 'image/png']}}})
+async def face(request: Request):
+    return await handle_image_request(request, 'face')
+
+
+def analyze_face_image(app, data, media_type):
+    # Shared request limiter prevents concurrent loading/inference with either channel.
+    image, frame = decode_image(data, media_type)
+    try:
+        if app.state.face_engine is None:
+            app.state.face_engine = FaceEngine(app.state.face_model_path)
+        return app.state.face_engine.analyze(image, frame)
+    finally:
+        image.close()
+
+
+async def handle_image_request(request: Request, channel: str):
     media_type = request.headers.get('content-type', '').split(';', 1)[0].strip().lower()
     if media_type not in {'image/jpeg', 'image/png'}:
         raise HTTPException(415, 'Envie bytes JPEG ou PNG com Content-Type correspondente; não envie URL, base64 ou multipart.')
     engine = getattr(request.app.state, 'engine', None)
-    if engine is None:
+    if channel == 'body' and engine is None:
         raise HTTPException(503, 'Modelo corporal indisponível.')
+    if channel == 'face' and not getattr(request.app.state, 'face_model_available', False):
+        raise HTTPException(503, 'Modelo facial indisponível.')
     slots = request.app.state.slots
     try:
         slots.acquire_nowait()
@@ -187,12 +233,14 @@ async def body(request: Request):
         except TimeoutError:
             raise HTTPException(408, 'Tempo máximo de envio da imagem excedido.')
         try:
+            if channel == 'face':
+                return await run_in_threadpool(analyze_face_image, request.app, b''.join(chunks), media_type)
             return await run_in_threadpool(analyze_image, engine, b''.join(chunks), media_type)
         except ImageTooLarge:
             raise HTTPException(413, 'Imagem excede os limites de bytes ou pixels.')
         except InvalidImage:
             raise HTTPException(422, 'Imagem inválida, incompatível com o Content-Type ou animada.')
-        except (InvalidModelResult, RuntimeError, ValueError):
+        except (InvalidModelResult, RuntimeError, ValueError, OSError):
             raise HTTPException(503, 'Não foi possível obter um resultado válido do modelo.')
     finally:
         slots.release()
