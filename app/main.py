@@ -16,6 +16,7 @@ from app.pose import PoseEngine, InvalidModelResult
 from app.schemas import BodyResponse, FaceResponse, VocalResponse
 from app.vocal import analyze_wav, InvalidAudio, MAX_AUDIO_BYTES
 from app.face import FaceEngine
+from app.rapidapi import RapidAPIGateway
 
 MAX_UPLOAD_SECONDS = 10
 
@@ -48,6 +49,8 @@ async def lifespan(app):
 
 app = FastAPI(title='Nonverbal API', version='0.1.0', lifespan=lifespan,
               description='Protótipo de observações geométricas corporais em uma imagem. Não infere emoção, intenção, atenção ou diagnóstico. A API HTTP oferece análise corporal e facial por imagem; vídeo e movimentos são processados localmente na demonstração. Áudio WAV recebe medidas acústicas sem transcrição ou interpretação emocional.')
+
+app.add_middleware(RapidAPIGateway)
 
 DEMO_DIR = Path(__file__).resolve().parent / 'demo'
 app.mount('/demo-assets', StaticFiles(directory=DEMO_DIR), name='demo-assets')

@@ -1,0 +1,837 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Nonverbal API",
+    "description": "API experimental para pontos corporais/faciais em JPEG/PNG e medidas acústicas em WAV PCM16. Sem inferência de emoções, intenções, identidade ou diagnóstico. Vídeo e mãos detalhadas pertencem à demonstração local; não são endpoints HTTP. Uma análise por processo; limites de imagem 2 MiB/4 MP e WAV 8 MiB/30 s. As cotas de assinatura são configuradas no RapidAPI.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "tags": [
+          "Models"
+        ],
+        "summary": "Models",
+        "operationId": "listModels",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/body/analyze": {
+      "post": {
+        "tags": [
+          "Body"
+        ],
+        "summary": "Detectar pontos corporais e observar posição relativa de punhos e ombros",
+        "operationId": "analyzeBody",
+        "requestBody": {
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BodyResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Mais de 2 MiB ou 4 milhões de pixels"
+          },
+          "415": {
+            "description": "Tipo diferente de JPEG/PNG"
+          },
+          "408": {
+            "description": "Tempo máximo de envio excedido"
+          },
+          "422": {
+            "description": "Imagem inválida, incompatível ou animada"
+          },
+          "429": {
+            "description": "Uma análise já está em andamento"
+          },
+          "503": {
+            "description": "Modelo indisponível ou resultado inválido"
+          }
+        }
+      }
+    },
+    "/v1/face/analyze": {
+      "post": {
+        "tags": [
+          "Face"
+        ],
+        "summary": "Contornos faciais e razões de abertura em uma imagem",
+        "operationId": "analyzeFace",
+        "requestBody": {
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaceResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Mais de 2 MiB ou 4 milhões de pixels"
+          },
+          "415": {
+            "description": "Formato diferente de JPEG/PNG"
+          },
+          "408": {
+            "description": "Tempo máximo de envio excedido"
+          },
+          "422": {
+            "description": "Imagem inválida ou animada"
+          },
+          "429": {
+            "description": "Uma análise corporal ou facial está em andamento"
+          },
+          "503": {
+            "description": "Modelo indisponível ou inválido"
+          }
+        }
+      }
+    },
+    "/v1/vocal/analyze": {
+      "post": {
+        "tags": [
+          "Vocal"
+        ],
+        "summary": "Medidas acústicas em WAV PCM16, sem interpretação emocional",
+        "operationId": "analyzeVocal",
+        "requestBody": {
+          "content": {
+            "audio/wav": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "audio/x-wav": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VocalResponse"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "Envio excedeu 10 segundos"
+          },
+          "413": {
+            "description": "Mais de 8 MiB"
+          },
+          "415": {
+            "description": "Tipo diferente de WAV"
+          },
+          "422": {
+            "description": "WAV incompatível, inválido ou acima de 30 s"
+          },
+          "429": {
+            "description": "Uma análise já está em andamento"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ArmObservation": {
+        "properties": {
+          "side": {
+            "type": "string",
+            "enum": [
+              "left",
+              "right"
+            ],
+            "title": "Side"
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "wrist_above_shoulder",
+              "wrist_not_above_shoulder",
+              "undetermined"
+            ],
+            "title": "Relation"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "geometry_observed",
+              "near_threshold",
+              "low_visibility",
+              "out_of_frame",
+              "missing_landmarks",
+              "no_pose",
+              "multiple_poses"
+            ],
+            "title": "Reason"
+          },
+          "vertical_gap": {
+            "title": "Vertical Gap",
+            "nullable": true,
+            "type": "number"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "side",
+          "relation",
+          "reason"
+        ],
+        "title": "ArmObservation"
+      },
+      "BodyResponse": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": "0.1.0",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "experimental": {
+            "type": "boolean",
+            "title": "Experimental",
+            "default": true,
+            "enum": [
+              true
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "title": "Channel",
+            "default": "body",
+            "enum": [
+              "body"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "mediapipe-pose-landmarker-lite-float16-v1",
+            "enum": [
+              "mediapipe-pose-landmarker-lite-float16-v1"
+            ]
+          },
+          "model_sha256": {
+            "type": "string",
+            "title": "Model Sha256"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "observed",
+              "partial",
+              "undetermined",
+              "no_pose",
+              "multiple_poses"
+            ],
+            "title": "Status"
+          },
+          "frame": {
+            "$ref": "#/components/schemas/Frame"
+          },
+          "detected_poses_capped": {
+            "type": "integer",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Detected Poses Capped"
+          },
+          "landmarks": {
+            "items": {
+              "$ref": "#/components/schemas/Landmark"
+            },
+            "type": "array",
+            "maxItems": 22,
+            "title": "Landmarks"
+          },
+          "arms": {
+            "items": {
+              "$ref": "#/components/schemas/ArmObservation"
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Arms"
+          },
+          "visibility_threshold": {
+            "type": "number",
+            "title": "Visibility Threshold",
+            "default": 0.7
+          },
+          "vertical_margin": {
+            "type": "number",
+            "title": "Vertical Margin",
+            "default": 0.05
+          },
+          "coordinate_system": {
+            "type": "string",
+            "title": "Coordinate System",
+            "default": "normalized_image_x_right_y_down_z_relative",
+            "enum": [
+              "normalized_image_x_right_y_down_z_relative"
+            ]
+          },
+          "notice": {
+            "type": "string",
+            "title": "Notice",
+            "default": "Observações geométricas experimentais em uma imagem. Não identifica emoção, intenção, atenção, comunicação ou condição clínica. Escores do detector não são probabilidades calibradas da interpretação."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model_sha256",
+          "status",
+          "frame",
+          "detected_poses_capped",
+          "landmarks",
+          "arms"
+        ],
+        "title": "BodyResponse"
+      },
+      "EnergyFrame": {
+        "properties": {
+          "time_seconds": {
+            "type": "number",
+            "maximum": 30.0,
+            "minimum": 0.0,
+            "title": "Time Seconds"
+          },
+          "rms_dbfs": {
+            "type": "number",
+            "maximum": 0.0,
+            "minimum": -120.0,
+            "title": "Rms Dbfs"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "time_seconds",
+          "rms_dbfs"
+        ],
+        "title": "EnergyFrame"
+      },
+      "FacePoint": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "maximum": 477.0,
+            "minimum": 0.0,
+            "title": "Id"
+          },
+          "x": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "x",
+          "y"
+        ],
+        "title": "FacePoint"
+      },
+      "FaceResponse": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": "0.1.0",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "experimental": {
+            "type": "boolean",
+            "title": "Experimental",
+            "default": true,
+            "enum": [
+              true
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "title": "Channel",
+            "default": "face",
+            "enum": [
+              "face"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "mediapipe-face-landmarker-float16-v1",
+            "enum": [
+              "mediapipe-face-landmarker-float16-v1"
+            ]
+          },
+          "model_sha256": {
+            "type": "string",
+            "title": "Model Sha256"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "observed",
+              "partial",
+              "undetermined",
+              "no_face",
+              "multiple_faces"
+            ],
+            "title": "Status"
+          },
+          "frame": {
+            "$ref": "#/components/schemas/Frame"
+          },
+          "detected_faces_capped": {
+            "type": "integer",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Detected Faces Capped"
+          },
+          "landmarks": {
+            "items": {
+              "$ref": "#/components/schemas/FacePoint"
+            },
+            "type": "array",
+            "maxItems": 478,
+            "title": "Landmarks"
+          },
+          "measures": {
+            "type": "object",
+            "required": [
+              "mouth",
+              "leftEye",
+              "rightEye"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "mouth": {
+                "$ref": "#/components/schemas/OpeningMeasure"
+              },
+              "leftEye": {
+                "$ref": "#/components/schemas/OpeningMeasure"
+              },
+              "rightEye": {
+                "$ref": "#/components/schemas/OpeningMeasure"
+              }
+            }
+          },
+          "coordinate_system": {
+            "type": "string",
+            "title": "Coordinate System",
+            "default": "normalized_image_x_right_y_down",
+            "enum": [
+              "normalized_image_x_right_y_down"
+            ]
+          },
+          "notice": {
+            "type": "string",
+            "title": "Notice",
+            "default": "Razões geométricas experimentais, sem unidade. Não são confiança, emoção, atenção, identidade ou diagnóstico. Sem reconhecimento de identidade ou armazenamento de imagens."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model_sha256",
+          "status",
+          "frame",
+          "detected_faces_capped",
+          "landmarks",
+          "measures"
+        ],
+        "title": "FaceResponse"
+      },
+      "Frame": {
+        "properties": {
+          "width": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "title": "Width",
+            "minimum": 0.0
+          },
+          "height": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "title": "Height",
+            "minimum": 0.0
+          },
+          "processed_width": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "title": "Processed Width",
+            "minimum": 0.0
+          },
+          "processed_height": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "title": "Processed Height",
+            "minimum": 0.0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "width",
+          "height",
+          "processed_width",
+          "processed_height"
+        ],
+        "title": "Frame"
+      },
+      "Landmark": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "maximum": 32.0,
+            "minimum": 11.0,
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "x": {
+            "type": "number",
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "title": "Y"
+          },
+          "z": {
+            "type": "number",
+            "title": "Z"
+          },
+          "visibility": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Visibility"
+          },
+          "presence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Presence"
+          },
+          "in_frame": {
+            "type": "boolean",
+            "title": "In Frame"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "x",
+          "y",
+          "z",
+          "visibility",
+          "presence",
+          "in_frame"
+        ],
+        "title": "Landmark"
+      },
+      "LowEnergyInterval": {
+        "properties": {
+          "start_seconds": {
+            "type": "number",
+            "maximum": 30.0,
+            "minimum": 0.0,
+            "title": "Start Seconds"
+          },
+          "end_seconds": {
+            "type": "number",
+            "maximum": 30.0,
+            "exclusiveMinimum": true,
+            "title": "End Seconds",
+            "minimum": 0.0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "start_seconds",
+          "end_seconds"
+        ],
+        "title": "LowEnergyInterval"
+      },
+      "OpeningMeasure": {
+        "properties": {
+          "value": {
+            "title": "Value",
+            "nullable": true,
+            "type": "number",
+            "minimum": 0.0
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "geometry_observed",
+              "missing_landmarks",
+              "region_too_small",
+              "no_face",
+              "multiple_faces"
+            ],
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "OpeningMeasure"
+      },
+      "VocalResponse": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": "0.1.0",
+            "enum": [
+              "0.1.0"
+            ]
+          },
+          "experimental": {
+            "type": "boolean",
+            "title": "Experimental",
+            "default": true,
+            "enum": [
+              true
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "title": "Channel",
+            "default": "vocal",
+            "enum": [
+              "vocal"
+            ]
+          },
+          "algorithm": {
+            "type": "string",
+            "title": "Algorithm",
+            "default": "pcm-autocorrelation-v1",
+            "enum": [
+              "pcm-autocorrelation-v1"
+            ]
+          },
+          "duration_seconds": {
+            "type": "number",
+            "maximum": 30.0,
+            "exclusiveMinimum": true,
+            "title": "Duration Seconds",
+            "minimum": 0.0
+          },
+          "sample_rate_hz": {
+            "type": "integer",
+            "maximum": 48000.0,
+            "minimum": 8000.0,
+            "title": "Sample Rate Hz"
+          },
+          "channels": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ],
+            "title": "Channels"
+          },
+          "rms_dbfs": {
+            "type": "number",
+            "maximum": 0.0,
+            "minimum": -120.0,
+            "title": "Rms Dbfs"
+          },
+          "peak_dbfs": {
+            "type": "number",
+            "maximum": 0.0,
+            "minimum": -120.0,
+            "title": "Peak Dbfs"
+          },
+          "clipped_sample_fraction": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Clipped Sample Fraction"
+          },
+          "pitch_median_hz": {
+            "title": "Pitch Median Hz",
+            "nullable": true,
+            "type": "number",
+            "maximum": 800.0,
+            "minimum": 70.0
+          },
+          "pitch_reason": {
+            "type": "string",
+            "enum": [
+              "periodicity_estimated",
+              "insufficient_periodicity"
+            ],
+            "title": "Pitch Reason"
+          },
+          "periodic_frame_count": {
+            "type": "integer",
+            "maximum": 1500.0,
+            "minimum": 0.0,
+            "title": "Periodic Frame Count"
+          },
+          "low_energy_threshold_dbfs": {
+            "type": "number",
+            "title": "Low Energy Threshold Dbfs",
+            "default": -40.0,
+            "enum": [
+              -40.0
+            ]
+          },
+          "minimum_low_energy_seconds": {
+            "type": "number",
+            "title": "Minimum Low Energy Seconds",
+            "default": 0.2,
+            "enum": [
+              0.2
+            ]
+          },
+          "low_energy_intervals": {
+            "items": {
+              "$ref": "#/components/schemas/LowEnergyInterval"
+            },
+            "type": "array",
+            "maxItems": 150,
+            "title": "Low Energy Intervals"
+          },
+          "envelope": {
+            "items": {
+              "$ref": "#/components/schemas/EnergyFrame"
+            },
+            "type": "array",
+            "maxItems": 1500,
+            "title": "Envelope"
+          },
+          "notice": {
+            "type": "string",
+            "title": "Notice"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "duration_seconds",
+          "sample_rate_hz",
+          "channels",
+          "rms_dbfs",
+          "peak_dbfs",
+          "clipped_sample_fraction",
+          "pitch_reason",
+          "periodic_frame_count",
+          "low_energy_intervals",
+          "envelope",
+          "notice"
+        ],
+        "title": "VocalResponse"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://nonverbal-api.onrender.com/rapidapi",
+      "description": "Origem protegida para o gateway RapidAPI"
+    }
+  ]
+}

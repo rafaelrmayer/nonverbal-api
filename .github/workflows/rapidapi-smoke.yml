@@ -1,0 +1,20 @@
+name: Conferir Nonverbal no RapidAPI
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install Pillow==12.3.0
+      - name: Conferir cinco operações com mídia sintética
+        env:
+          NONVERBAL_RAPIDAPI_HOST: ${{ vars.NONVERBAL_RAPIDAPI_HOST }}
+          NONVERBAL_RAPIDAPI_KEY: ${{ secrets.NONVERBAL_RAPIDAPI_KEY }}
+        run: python -m scripts.rapidapi_smoke
