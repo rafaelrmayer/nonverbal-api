@@ -41,3 +41,23 @@ def test_hand_model_missing_or_corrupt_is_rejected(tmp_path):
             path.write_bytes(b'corrupt')
         with pytest.raises(ValueError):
             hand_model_asset.verify_model(path)
+
+
+def test_face_asset_verifies_download_before_atomic_publication(tmp_path, monkeypatch):
+    from app import face_model_asset as asset
+    from scripts import download_face_model as setup
+    with pytest.raises(ValueError):
+        asset.verify_model(tmp_path / 'missing.task')
+    monkeypatch.setattr(setup, 'urlopen', lambda *args, **kwargs: BytesIO(b'corrupt'))
+    path = tmp_path / 'face.task'
+    with pytest.raises(ValueError):
+        setup.download(path)
+    assert not path.exists()
+    data = b'synthetic-face-asset-for-test'
+    checksum = hashlib.sha256(data).hexdigest()
+    monkeypatch.setattr(asset, 'MODEL_SHA256', checksum)
+    monkeypatch.setattr(setup, 'MODEL_SHA256', checksum)
+    monkeypatch.setattr(setup, 'urlopen', lambda *args, **kwargs: BytesIO(data))
+    assert setup.download(path).read_bytes() == data
+    monkeypatch.setattr(setup, 'urlopen', lambda *args, **kwargs: pytest.fail('Already verified'))
+    assert setup.download(path) == path

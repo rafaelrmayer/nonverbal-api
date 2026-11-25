@@ -10,6 +10,7 @@ from starlette.concurrency import run_in_threadpool
 from app.images import MAX_BYTES, decode_image, InvalidImage, ImageTooLarge
 from app.model_asset import MODEL_SHA256, verify_model
 from app import hand_model_asset as hand_asset
+from app import face_model_asset as face_asset
 from app.browser_assets import SDK_VERSION, RUNTIME_DIR, RUNTIME_FILES
 from app.pose import PoseEngine, InvalidModelResult
 from app.schemas import BodyResponse
@@ -34,7 +35,7 @@ async def lifespan(app):
 
 
 app = FastAPI(title='Nonverbal API', version='0.1.0', lifespan=lifespan,
-              description='Protótipo de observações geométricas corporais em uma imagem. Não infere emoção, intenção, atenção ou diagnóstico. Sem análise facial, vocal ou temporal nesta versão.')
+              description='Protótipo de observações geométricas corporais em uma imagem. Não infere emoção, intenção, atenção ou diagnóstico. A API HTTP não oferece análise facial, vocal ou temporal nesta versão; o espelho da página possui módulos locais próprios.')
 
 DEMO_DIR = Path(__file__).resolve().parent / 'demo'
 app.mount('/demo-assets', StaticFiles(directory=DEMO_DIR), name='demo-assets')
@@ -44,7 +45,7 @@ app.mount('/demo-assets', StaticFiles(directory=DEMO_DIR), name='demo-assets')
 async def no_cache(request, call_next):
     response = await call_next(request)
     path = request.url.path
-    immutable = path.startswith('/browser-runtime/') or path.startswith('/mirror-model/') or path.startswith('/mirror-hand-model/')
+    immutable = path.startswith('/browser-runtime/') or path.startswith('/mirror-model/') or path.startswith('/mirror-hand-model/') or path.startswith('/mirror-face-model/')
     response.headers['Cache-Control'] = 'public, max-age=31536000, immutable' if immutable and response.status_code == 200 else 'no-store'
     response.headers['X-Content-Type-Options'] = 'nosniff'
     mirror = path in {'/', '/mirror', '/demo-assets/mirror-worker.js'}
@@ -78,7 +79,9 @@ def mirror_config():
             'model_url': f'/mirror-model/{MODEL_SHA256}.task',
             'model_sha256': MODEL_SHA256,
             'hand_model_url': f'/mirror-hand-model/{hand_asset.MODEL_SHA256}.task',
-            'hand_model_sha256': hand_asset.MODEL_SHA256}
+            'hand_model_sha256': hand_asset.MODEL_SHA256,
+            'face_model_url': f'/mirror-face-model/{face_asset.MODEL_SHA256}.task',
+            'face_model_sha256': face_asset.MODEL_SHA256}
 
 
 @app.get('/browser-runtime/{version}/{asset}', include_in_schema=False)
@@ -111,6 +114,17 @@ def mirror_hand_model(checksum: str):
     except (OSError, ValueError):
         raise HTTPException(503, 'Asset do modelo de mãos indisponível.')
     return FileResponse(path, media_type='application/octet-stream', headers={'ETag': '"'+hand_asset.MODEL_SHA256+'"'})
+
+
+@app.get('/mirror-face-model/{checksum}.task', include_in_schema=False)
+def mirror_face_model(checksum: str):
+    if checksum != face_asset.MODEL_SHA256:
+        raise HTTPException(404, 'Modelo não encontrado.')
+    try:
+        path = face_asset.verify_model(os.environ.get('FACE_MODEL_PATH', 'models/face_landmarker.task'))
+    except (OSError, ValueError):
+        raise HTTPException(503, 'Asset do modelo de rosto indisponível.')
+    return FileResponse(path, media_type='application/octet-stream', headers={'ETag': '"'+face_asset.MODEL_SHA256+'"'})
 
 
 @app.get('/health', tags=['Health'])
