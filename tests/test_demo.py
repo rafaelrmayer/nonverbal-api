@@ -47,7 +47,7 @@ def test_both_entrypoints_serve_unified_modes_with_same_origin_wasm(client):
     assert "'unsafe-eval'" not in response.headers['Content-Security-Policy']
     assert response.headers['Cache-Control'] == 'no-store'
     assert engine.calls == 0
-    for asset in ['mirror.mjs', 'mirror-worker.js', 'mirror-core.mjs', 'mirror.css']:
+    for asset in ['mirror.mjs', 'mirror-worker.js', 'mirror-core.mjs', 'mirror.css', 'face-core.mjs']:
         assert session.get('/demo-assets/' + asset).status_code == 200
     assert len(session.get('/openapi.json').json()['paths']) == 3
 
@@ -89,5 +89,25 @@ def test_hand_asset_is_separate_hash_checked_and_not_part_of_api(client, monkeyp
     assert response.status_code == 200
     assert 'immutable' in response.headers['Cache-Control']
     assert response.headers['etag'] == '"' + config['hand_model_sha256'] + '"'
+    assert engine.calls == 0
+    assert len(session.get('/openapi.json').json()['paths']) == 3
+
+
+def test_face_asset_rejects_wrong_hash_and_keeps_api_contract(client, monkeypatch, tmp_path):
+    from app import main
+    session, engine = client
+    config = session.get('/mirror-config').json()
+    model = tmp_path / 'face.task'
+    model.write_bytes(b'corrupt face model')
+    monkeypatch.setenv('FACE_MODEL_PATH', str(model))
+    response = session.get(config['face_model_url'])
+    assert response.status_code == 503
+    assert response.headers['Cache-Control'] == 'no-store'
+    assert session.get('/mirror-face-model/wrong.task').status_code == 404
+    monkeypatch.setattr(main.face_asset, 'verify_model', lambda path: model)
+    response = session.get(config['face_model_url'])
+    assert response.status_code == 200
+    assert 'immutable' in response.headers['Cache-Control']
+    assert response.headers['etag'] == '"' + config['face_model_sha256'] + '"'
     assert engine.calls == 0
     assert len(session.get('/openapi.json').json()['paths']) == 3

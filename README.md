@@ -31,6 +31,12 @@ A aba **Espelho de pontinhos** oferece uma brincadeira visual com pontos e linha
 
 Os dois modos compartilham a página, mas cada um mantém seu fluxo de processamento. Isso não adiciona vídeo ao contrato da API. O endereço `/mirror` continua abrindo a página com o espelho selecionado. Veja [preparação, privacidade e testes](docs/MIRROR.md). A câmera real do novo modo deve ser conferida após implantar esta alteração.
 
+## Módulo facial do espelho
+
+O espelho agora também oferece **Rosto e contornos**: linhas de olhos, sobrancelhas, lábios e mandíbula e medidas opcionais de abertura relativa dos olhos e da boca. As medidas são razões geométricas, não porcentagens, emoções, atenção ou diagnóstico. São exibidas apenas quando há um rosto detectado e pontos suficientes; dois rostos podem ter contornos desenhados sem atribuição de identidade.
+
+Corpo, mãos e rosto podem ser selecionados antes de iniciar. Usar só rosto reduz o processamento e evita baixar os outros modelos para aquela sessão. O modelo facial adicional tem aproximadamente 4 MB, é servido pelo próprio site e validado por SHA-256. Não há envio de frames, áudio, reconhecimento de identidade ou armazenamento de rostos. Isso pertence ao espelho no navegador: **não adiciona um endpoint facial à API HTTP**. A verificação com câmera física é feita após a implantação; testes com pontos sintéticos não medem precisão real.
+
 ## Endpoints
 
 | Método | Caminho | Resultado |
@@ -82,6 +88,7 @@ source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 python -m scripts.download_model
 python -m scripts.download_hand_model
+python -m scripts.download_face_model
 # Para habilitar o espelho local (Node 24):
 npm ci
 npm run prepare:mirror

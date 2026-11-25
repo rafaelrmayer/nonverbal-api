@@ -37,14 +37,15 @@ test('real worker runs WASM on blank image, returns bitmap, and requests only sa
       const source=new OffscreenCanvas(320,240);const ctx=source.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,320,240);
       const bitmap=source.transferToImageBitmap();worker.postMessage({type:'frame',bitmap,timestamp:1},[bitmap]);
      }
-     if(data.type==='result'){const result={poses:data.poses,hands:data.hands,width:data.bitmap.width,height:data.bitmap.height};data.bitmap.close();clearTimeout(timer);worker.terminate();resolve(result);}
-    };worker.postMessage({type:'init',config});
+     if(data.type==='result'){const result={poses:data.poses,hands:data.hands,faces:data.faces,width:data.bitmap.width,height:data.bitmap.height};data.bitmap.close();clearTimeout(timer);worker.terminate();resolve(result);}
+    };worker.postMessage({type:'init',config,face:true});
    });
   });
-  assert.deepEqual(result,{poses:[],hands:[],width:320,height:240});
+  assert.deepEqual(result,{poses:[],hands:[],faces:[],width:320,height:240});
   assert.ok(requests.some(r=>r.url.includes('.wasm')));
   assert.ok(requests.some(r=>r.url.includes('/mirror-model/')));
   assert.ok(requests.some(r=>r.url.includes('/mirror-hand-model/')));
+  assert.ok(requests.some(r=>r.url.includes('/mirror-face-model/')));
   assert.ok(requests.every(r=>r.method==='GET'&&new URL(r.url).origin===origin));
   assert.deepEqual(errors,[]);
  }finally{await close();}
@@ -56,6 +57,7 @@ test('real local camera loop stops tracks, supports points-only, and never uploa
   await page.locator('#mirrorModeTab').click();
   assert.ok(!requests.some(r=>r.url.includes('/mirror-model/')));
   await page.getByLabel('Detalhar mãos e dedos',{exact:true}).uncheck();
+  await page.getByLabel('Rosto e contornos',{exact:true}).uncheck();
   await page.getByRole('button',{name:'Iniciar espelho',exact:true}).click();
   await page.waitForFunction(()=>!document.getElementById('mirrorCanvas').hidden,{},{timeout:90000});
   assert.equal(await page.locator('#mirrorVideo').evaluate(v=>v.srcObject.getAudioTracks().length),0);
@@ -67,6 +69,7 @@ test('real local camera loop stops tracks, supports points-only, and never uploa
   assert.equal(await page.locator('#mirrorCanvas').isHidden(),true);
   const count=requests.length;await delay(400);assert.equal(requests.length,count);
   assert.ok(!requests.some(r=>r.url.includes('/mirror-hand-model/')));
+  assert.ok(!requests.some(r=>r.url.includes('/mirror-face-model/')));
   assert.ok(requests.every(r=>r.method==='GET'&&new URL(r.url).origin===origin));assert.deepEqual(errors,[]);
  }finally{await close();}
 });
@@ -196,6 +199,89 @@ test('two-finger shape closes a triangle; option and lost detection clear it',as
    const c=document.getElementById('mirrorCanvas');const p=c.getContext('2d').getImageData(Math.round(c.width*.48),Math.round(c.height*.15),1,1).data;
    return p[0]===16&&p[1]===28&&p[2]===50;
   });
+  assert.ok(requests.every(r=>r.method==='GET'&&new URL(r.url).origin===origin));assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('face-only worker processes locally without fetching body or hand weights',{timeout:120000},async()=>{
+ const {page,requests,errors,close}=await setup();
+ try{
+  const result=await page.evaluate(async()=>{
+   const config=await(await fetch('/mirror-config')).json();
+   return await new Promise((resolve,reject)=>{
+    const worker=new Worker('/demo-assets/mirror-worker.js');
+    const timer=setTimeout(()=>{worker.terminate();reject(new Error('face worker timeout'));},90000);
+    worker.onerror=e=>{clearTimeout(timer);worker.terminate();reject(new Error(e.message));};
+    worker.onmessage=({data})=>{
+     if(data.type==='error'){clearTimeout(timer);worker.terminate();reject(new Error('face WASM failed'));}
+     if(data.type==='ready'){
+      const c=new OffscreenCanvas(320,240);const ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,320,240);
+      const bitmap=c.transferToImageBitmap();worker.postMessage({type:'frame',bitmap,timestamp:1},[bitmap]);
+     }
+     if(data.type==='result'){const output={poses:data.poses,hands:data.hands,faces:data.faces};data.bitmap.close();clearTimeout(timer);worker.terminate();resolve(output);}
+    };
+    worker.postMessage({type:'init',config,body:false,hands:false,face:true});
+   });
+  });
+  assert.deepEqual(result,{poses:[],hands:[],faces:[]});
+  assert.ok(requests.some(r=>r.url.includes('/mirror-face-model/')));
+  assert.ok(!requests.some(r=>r.url.includes('/mirror-model/')||r.url.includes('/mirror-hand-model/')));
+  assert.ok(requests.every(r=>r.method==='GET'&&new URL(r.url).origin===origin));assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('no selected module prevents starting camera or downloading any model',async()=>{
+ const {page,requests,errors,close}=await setup();
+ try{
+  for(const id of ['detailBody','detailHands','detailFace'])await page.locator('#'+id).uncheck();
+  await page.getByRole('button',{name:'Iniciar espelho',exact:true}).click();
+  await page.getByRole('alert').waitFor();
+  assert.match(await page.getByRole('alert').textContent(),/Selecione pelo menos um módulo/);
+  assert.equal(await page.locator('#mirrorVideo').evaluate(v=>v.srcObject),null);
+  assert.ok(!requests.some(r=>r.url.includes('/mirror-config')||r.url.includes('-model/')));
+  assert.deepEqual(errors,[]);
+ }finally{await close();}
+});
+
+test('facial contours and ratios render and clear on lost detection, options and stop',async()=>{
+ const {page,requests,errors,close}=await setup(()=>{
+  const face=[
+   {id:61,x:.3,y:.7},{id:291,x:.7,y:.7},{id:13,x:.5,y:.68},{id:14,x:.5,y:.76},
+   {id:33,x:.2,y:.3},{id:133,x:.4,y:.3},{id:159,x:.26,y:.28},{id:145,x:.26,y:.32},{id:158,x:.34,y:.28},{id:153,x:.34,y:.32},
+   {id:362,x:.6,y:.3},{id:263,x:.8,y:.3},{id:386,x:.66,y:.27},{id:374,x:.66,y:.33},{id:385,x:.74,y:.27},{id:380,x:.74,y:.33}];
+  window.Worker=class{
+   constructor(){this.active=true;}
+   postMessage(data){
+    if(data.type==='init'){window.selectedModules={body:data.body,hands:data.hands,face:data.face};setTimeout(()=>{if(this.active)this.onmessage({data:{type:'ready'}});},10);}
+    if(data.type==='frame')setTimeout(()=>{if(this.active)this.onmessage({data:{type:'result',poses:[],hands:[],faces:window.noFace?[]:window.twoFaces?[face,face]:[face],bitmap:data.bitmap}});else data.bitmap.close();},10);
+   }
+   terminate(){this.active=false;}
+  };
+ });
+ try{
+  await page.locator('#detailBody').uncheck();await page.locator('#detailHands').uncheck();
+  await page.getByLabel('Só pontinhos',{exact:true}).check();
+  await page.getByRole('button',{name:'Iniciar espelho',exact:true}).click();
+  await page.waitForFunction(()=>document.getElementById('mouthRatio').textContent==='0,15 ×');
+  assert.deepEqual(await page.evaluate(()=>window.selectedModules),{body:false,hands:false,face:true});
+  assert.equal(await page.locator('#detailFace').isDisabled(),true);
+  assert.match(await page.locator('#leftEyeRatio').textContent(),/^0,2[23] ×$/);
+  const point=await page.locator('#mirrorCanvas').evaluate(c=>Array.from(c.getContext('2d').getImageData(Math.round(c.width*.5),Math.round(c.height*.68),1,1).data));
+  assert.ok(point[1]>150&&point[0]>70,'Facial point should be drawn in green');
+  await page.getByLabel('Mostrar medidas de abertura',{exact:true}).uncheck();
+  assert.equal(await page.locator('#faceMeasures').isHidden(),true);
+  await page.getByLabel('Mostrar medidas de abertura',{exact:true}).check();
+  await page.evaluate(()=>{window.twoFaces=true;});
+  await page.getByText('Enquadre um rosto por vez para ver as medidas.',{exact:true}).waitFor();
+  assert.equal(await page.locator('#mouthRatio').textContent(),'—');
+  await page.evaluate(()=>{window.noFace=true;});
+  await page.waitForFunction(()=>document.getElementById('faceMeasureStatus').textContent.startsWith('Aguardando'));
+  const cleared=await page.locator('#mirrorCanvas').evaluate(c=>Array.from(c.getContext('2d').getImageData(Math.round(c.width*.5),Math.round(c.height*.68),1,1).data));
+  assert.deepEqual(cleared,[16,28,50,255]);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.getByRole('button',{name:'Parar câmera',exact:true}).click();
+  assert.equal(await page.locator('#mouthRatio').textContent(),'—');
+  assert.equal(await page.locator('#detailFace').isEnabled(),true);
   assert.ok(requests.every(r=>r.method==='GET'&&new URL(r.url).origin===origin));assert.deepEqual(errors,[]);
  }finally{await close();}
 });

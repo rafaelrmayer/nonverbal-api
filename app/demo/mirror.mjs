@@ -1,8 +1,9 @@
 import {EDGES,HAND_EDGES,fingerTriangle,frameSize} from './mirror-core.mjs';
+import {FACE_EDGES,faceMeasures} from './face-core.mjs';
 const el=id=>document.getElementById(id);
 const video=el('mirrorVideo'),canvas=el('mirrorCanvas'),ctx=canvas.getContext('2d');
 const lastFrame=document.createElement('canvas'),lastCtx=lastFrame.getContext('2d');
-let generation=0,worker,stream,timer,prepareTimer,frameTimer,rejectInit,abort,poses=[],hands=[],lastTime=-1;
+let generation=0,worker,stream,timer,prepareTimer,frameTimer,rejectInit,abort,poses=[],hands=[],faces=[],lastTime=-1;
 function status(text){if(el('mirrorStatus').textContent!==text)el('mirrorStatus').textContent=text;}
 export function stopMirror(message='Câmera desligada.') {
   generation++;
@@ -12,17 +13,31 @@ export function stopMirror(message='Câmera desligada.') {
   worker?.terminate();worker=null;
   stream?.getTracks().forEach(track=>track.stop());stream=null;
   video.pause();video.srcObject=null;
-  poses=[];hands=[];lastTime=-1;canvas.width=1;canvas.height=1;lastFrame.width=1;lastFrame.height=1;
+  poses=[];hands=[];faces=[];lastTime=-1;canvas.width=1;canvas.height=1;lastFrame.width=1;lastFrame.height=1;
   canvas.hidden=true;el('mirrorPlaceholder').hidden=false;
-  el('startMirror').disabled=false;el('stopMirror').disabled=true;el('facing').disabled=false;el('detailHands').disabled=false;
+  el('startMirror').disabled=false;el('stopMirror').disabled=true;el('facing').disabled=false;el('detailHands').disabled=false;el('detailFace').disabled=false;el('detailBody').disabled=false;
+  updateFaceMeasures();
   status(message);
 }
 function fail(message){stopMirror(message);el('mirrorError').textContent=message;el('mirrorError').hidden=false;}
-function drawPoints(points,edges,color){
+function drawPoints(points,edges,color,facial=false){
   const byId=new Map(points.map(p=>[p.id,p]));
-  ctx.strokeStyle=color;ctx.lineWidth=Math.max(2,canvas.width/180);ctx.lineCap='round';
+  ctx.strokeStyle=color;ctx.lineWidth=facial?Math.max(1,canvas.width/400):Math.max(2,canvas.width/180);ctx.lineCap='round';
   for(const [a,b]of edges){const p=byId.get(a),q=byId.get(b);if(!p||!q)continue;ctx.beginPath();ctx.moveTo(p.x*canvas.width,p.y*canvas.height);ctx.lineTo(q.x*canvas.width,q.y*canvas.height);ctx.stroke();}
-  for(const p of points){ctx.beginPath();ctx.arc(p.x*canvas.width,p.y*canvas.height,Math.max(3,canvas.width/130),0,2*Math.PI);ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#101c32';ctx.lineWidth=1;ctx.stroke();}
+  for(const p of points){ctx.beginPath();ctx.arc(p.x*canvas.width,p.y*canvas.height,(facial?Math.max(1.2,canvas.width/400):Math.max(3,canvas.width/130)),0,2*Math.PI);ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#101c32';ctx.lineWidth=1;ctx.stroke();}
+}
+function updateFaceMeasures(){
+  const visible=el('detailFace').checked&&el('showFaceMeasures').checked;
+  el('faceMeasures').hidden=!visible;
+  const measures=faces.length===1?faceMeasures(faces[0],canvas.width,canvas.height):null;
+  for(const [id,key]of [['mouthRatio','mouth'],['leftEyeRatio','leftEye'],['rightEyeRatio','rightEye']]){
+    const value=measures?.[key];
+    const label=value===null||value===undefined?'—':value.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' ×';
+    if(el(id).textContent!==label)el(id).textContent=label;
+  }
+  const hasMeasures=measures&&Object.values(measures).some(value=>value!==null);
+  const message=faces.length>1?'Enquadre um rosto por vez para ver as medidas.':hasMeasures?'Altura dividida pela largura da região. Não é porcentagem ou classificação.':'Aguardando um rosto com pontos suficientes no quadro.';
+  if(el('faceMeasureStatus').textContent!==message)el('faceMeasureStatus').textContent=message;
 }
 function draw(){
   if(canvas.hidden)return;
@@ -39,6 +54,8 @@ function draw(){
     ctx.closePath();ctx.fillStyle='rgba(250,204,21,0.15)';ctx.fill();
     ctx.strokeStyle='#facc15';ctx.lineWidth=Math.max(3,canvas.width/150);ctx.stroke();
   });
+  faces.forEach(points=>drawPoints(points,FACE_EDGES,'#a7f3d0',true));
+  updateFaceMeasures();
 }
 async function nextFrame(token){
   if(token!==generation||!worker)return;
@@ -55,7 +72,8 @@ async function nextFrame(token){
 }
 el('startMirror').addEventListener('click',async()=>{
   stopMirror();const token=generation;el('mirrorError').hidden=true;
-  el('startMirror').disabled=true;el('stopMirror').disabled=false;el('facing').disabled=true;el('detailHands').disabled=true;
+  if(!['detailBody','detailHands','detailFace'].some(id=>el(id).checked)){fail('Selecione pelo menos um módulo antes de iniciar o espelho.');return;}
+  el('startMirror').disabled=true;el('stopMirror').disabled=false;el('facing').disabled=true;el('detailHands').disabled=true;el('detailFace').disabled=true;el('detailBody').disabled=true;
   status('Preparando o modelo local… Na primeira vez, o download pode demorar.');
   try {
     if(!navigator.mediaDevices?.getUserMedia||!window.Worker||!window.createImageBitmap)throw new Error('unsupported');
@@ -70,18 +88,18 @@ el('startMirror').addEventListener('click',async()=>{
       worker.onmessage=({data})=>{
         if(token!==generation){data.bitmap?.close();return;}
         if(data.type==='ready'){rejectInit=null;resolve();}
-        if(data.type==='error'){reject(new Error('runtime'));fail(data.stage==='hands'?'Não foi possível carregar o detalhamento das mãos. Desmarque essa opção e tente novamente, ou confira a conexão.':'Não foi possível executar o modelo local. Tente novamente ou use a demonstração por foto.');}
+        if(data.type==='error'){reject(new Error('runtime'));fail(data.stage==='face'?'Não foi possível carregar o módulo facial. Desmarque Rosto e contornos e tente novamente, ou confira a conexão.':data.stage==='hands'?'Não foi possível carregar o detalhamento das mãos. Desmarque essa opção e tente novamente, ou confira a conexão.':'Não foi possível executar o modelo local. Tente novamente ou use a demonstração por foto.');}
         if(data.type==='result'){
           clearTimeout(frameTimer);
           const bitmap=data.bitmap;
           canvas.width=lastFrame.width=bitmap.width;canvas.height=lastFrame.height=bitmap.height;
-          lastCtx.drawImage(bitmap,0,0);bitmap.close();poses=data.poses;hands=data.hands??[];
+          lastCtx.drawImage(bitmap,0,0);bitmap.close();poses=data.poses;hands=data.hands??[];faces=data.faces??[];
           canvas.hidden=false;el('mirrorPlaceholder').hidden=true;draw();
-          status(poses.some(p=>p.length)||hands.some(p=>p.length)?'Espelho ligado. Mexa-se no seu ritmo!':'Espelho ligado. Enquadre o corpo com boa iluminação.');
+          status(poses.some(p=>p.length)||hands.some(p=>p.length)||faces.some(p=>p.length)?'Espelho ligado. Mexa-se no seu ritmo!':'Espelho ligado. Enquadre o corpo com boa iluminação.');
           timer=setTimeout(()=>nextFrame(token),125);
         }
       };
-      worker.postMessage({type:'init',config,hands:el('detailHands').checked});
+      worker.postMessage({type:'init',config,body:el('detailBody').checked,hands:el('detailHands').checked,face:el('detailFace').checked});
     });
     clearTimeout(prepareTimer);if(token!==generation)return;
     status('Aguardando sua permissão para a câmera…');
@@ -96,6 +114,8 @@ el('startMirror').addEventListener('click',async()=>{
 el('stopMirror').addEventListener('click',()=>stopMirror());
 el('onlyPoints').addEventListener('change',draw);
 el('handTriangles').addEventListener('change',draw);
+el('showFaceMeasures').addEventListener('change',updateFaceMeasures);
+el('detailFace').addEventListener('change',()=>{el('showFaceMeasures').disabled=!el('detailFace').checked;updateFaceMeasures();});
 el('detailHands').addEventListener('change',()=>{el('handTriangles').disabled=!el('detailHands').checked;});
 el('flip').addEventListener('change',()=>canvas.classList.toggle('flipped',el('flip').checked));
 canvas.classList.add('flipped');

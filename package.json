@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test:demo": "node --test tests/demo-core.test.mjs tests/mirror-core.test.mjs",
+    "test:demo": "node --test tests/demo-core.test.mjs tests/mirror-core.test.mjs tests/face-core.test.mjs",
     "test:browser": "node --test tests/demo-browser.test.mjs tests/mirror-browser.test.mjs",
     "prepare:mirror": "node scripts/prepare_browser_assets.mjs"
   },

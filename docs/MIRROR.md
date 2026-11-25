@@ -4,11 +4,11 @@ A aba **Espelho de pontinhos** na página inicial acompanha movimentos da câmer
 
 ## Fluxo e privacidade
 
-Ao clicar em **Iniciar espelho**, o navegador busca configuração, SDK e modelos no mesmo domínio do site. O modelo tem o mesmo SHA-256 fixado em `app/model_asset.py`, validado tanto pelo servidor quanto pelo worker antes de executar. O runtime Web é `@mediapipe/tasks-vision@0.10.32`, fixado no lockfile; arquivos originais são copiados no build, sem CDN em tempo de uso. O download inicial inclui aproximadamente 6 MB do modelo corporal e 11 MB de WASM, além do código JavaScript. Com **Detalhar mãos e dedos** marcado (padrão), inclui também aproximadamente 8 MB do modelo de mãos. Desmarcar antes de iniciar evita esse download e a segunda inferência. Assets versionados podem ficar no cache; frames não são gravados ou colocados no cache.
+Ao clicar em **Iniciar espelho**, o navegador busca configuração, SDK e os modelos selecionados no mesmo domínio do site. O modelo tem o mesmo SHA-256 fixado em `app/model_asset.py`, validado tanto pelo servidor quanto pelo worker antes de executar. O runtime Web é `@mediapipe/tasks-vision@0.10.32`, fixado no lockfile; arquivos originais são copiados no build, sem CDN em tempo de uso. O download inicial inclui aproximadamente 6 MB do modelo corporal e 11 MB de WASM, além do código JavaScript. Com **Detalhar mãos e dedos** marcado (padrão), inclui também aproximadamente 8 MB do modelo de mãos. O módulo **Rosto e contornos** acrescenta aproximadamente 4 MB. Somente modelos dos módulos marcados são baixados e executados; é possível desmarcar corpo, mãos ou rosto antes de iniciar. Pelo menos um módulo deve estar marcado. Assets versionados podem ficar no cache; frames não são gravados ou colocados no cache.
 
 Só depois da preparação é solicitada a permissão da câmera, sempre sem áudio. Não há POST, upload de frames, gravação, armazenamento persistente de imagens ou serviço externo de inferência neste modo. O servidor pode registrar acessos aos arquivos, conforme a configuração da hospedagem.
 
-Um worker clássico executa MediaPipe em modo VIDEO/CPU, até duas poses. Ele recebe um ImageBitmap reduzido a no máximo 640 pixels no lado maior e devolve o mesmo bitmap junto com os pontos. A página desenha os dois juntos, evitando sobrepor pontos antigos a uma imagem nova. Há somente um frame em processamento; o próximo é solicitado pelo menos 125 ms depois da resposta. A velocidade e o atraso dependem do aparelho.
+Um worker clássico executa os módulos selecionados em modo VIDEO/CPU: até duas poses, duas mãos e dois rostos. Ele recebe um ImageBitmap reduzido a no máximo 640 pixels no lado maior e devolve o mesmo bitmap junto com os pontos. A página desenha os dois juntos, evitando sobrepor pontos antigos a uma imagem nova. Há somente um frame em processamento; o próximo é solicitado pelo menos 125 ms depois da resposta. A velocidade e o atraso dependem do aparelho.
 
 Para o corpo, somente IDs 11–32 são desenhados. Pontos fora do quadro, não finitos ou com `visibility < 0.7` são omitidos, assim como linhas ligadas a eles. O SDK Web não fornece `presence` por ponto: o espelho usa apenas a visibilidade disponível e não fabrica esse campo. A API Python mantém sua regra original com visibility e presence. O espelho não executa a regra punho/ombro nem atribui emoção, intenção, atenção ou identidade. Cores distinguem desenhos no frame, sem identidade persistente.
 
@@ -20,6 +20,7 @@ Além da instalação Python e do download do modelo documentados no README:
 
 ```bash
 python -m scripts.download_hand_model
+python -m scripts.download_face_model
 npm ci
 npm run prepare:mirror
 ```
@@ -49,3 +50,19 @@ A linha da palma fecha o ciclo 0–5–9–13–17–0. Com **Fechar triângulo 
 Se pontos necessários somem ou a condição deixa de valer, o triângulo some no próximo frame processado. Desmarcar sua opção remove o desenho imediatamente. O detalhamento das mãos pode ser desligado antes de iniciar para reduzir consumo de memória e tempo de inferência. Falha no asset de mãos apresenta erro e orienta tentar sem esse detalhamento, sem envio alternativo ao servidor. O contrato da análise por foto continua apenas corporal.
 
 Testes adicionais cobrem geometria positiva/negativa e rotação, filtragem, encerramento do contorno, renderização/remoção do triângulo com pontos sintéticos e carga real dos dois modelos no worker sobre uma imagem branca. Esses testes não validam detecção de dedos de uma pessoa: após implantar, conferir manualmente com mão inteira próxima à câmera, boa luz, dois dedos abertos, mão aberta e punho fechado.
+
+## Rosto e medidas de abertura
+
+**Rosto e contornos** desenha olhos, sobrancelhas, lábios e oval/mandíbula em verde. As conexões são as oficiais do SDK fixado. Só pontos finitos dentro do quadro são desenhados, sem completar pontos ausentes. Não há reconhecimento de identidade, histórico de rostos, blendshapes, emoção, atenção, gaze ou estimativa clínica. Falha no modelo facial orienta tentar novamente com esse módulo desmarcado, sem envio alternativo ao servidor.
+
+**Mostrar medidas de abertura** pode ser ligado/desligado durante a sessão. Os valores usam distâncias em pixels no frame processado:
+
+- Boca: distância 13–14 dividida pela largura 61–291.
+- Olho esquerdo do modelo: média de 386–374 e 385–380, dividida por 362–263.
+- Olho direito do modelo: média de 159–145 e 158–153, dividida por 33–133.
+
+Os rótulos esquerdo/direito seguem o modelo; espelhar a imagem não troca a atribuição dos pontos. A notação “×” indica uma razão sem unidade (ex.: altura equivalente a 0,15 da largura), não confiança ou porcentagem. Não há classificação de olho aberto/fechado ou contador de piscadas. Sem os pontos necessários, largura suficiente (8 pixels para boca, 4 para olhos), ou com dois rostos detectados, a medida fica “—”. Distância muito pequena, ângulo fora do plano, óculos, oclusão e iluminação podem distorcer o resultado. Ausência de ponto não comprova ausência da região.
+
+Ao perder a detecção, o próximo frame limpa contornos e medidas anteriores. Parar, ocultar a página ou trocar de experiência também limpa tudo. Os controles dos módulos ficam bloqueados enquanto a sessão está ativa; parar os libera. Não há persistência de coordenadas ou valores. Os valores mudam sem avisos de leitor de tela a cada frame para evitar anúncios contínuos.
+
+A CI testa os três modelos reais juntos e o modelo facial isolado sobre imagem branca, sem buscar pesos dos módulos desativados. Pontos sintéticos verificam contornos, razões, espelhamento/rotação, ausência de evidência, desenho, múltiplos rostos, limpeza e controles. Após o merge e a implantação, testar manualmente rosto inteiro no quadro, piscar, abrir/fechar a boca, modo só pontinhos, desligamento e opções com corpo/mãos. A precisão e o desempenho com câmera física ainda dependem dessa etapa.

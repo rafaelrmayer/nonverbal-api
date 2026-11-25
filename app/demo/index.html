@@ -81,7 +81,13 @@
       <aside class="control-panel">
         <h2>Vamos experimentar?</h2><p>Enquadre o corpo e deixe espaço para se movimentar. Até duas pessoas podem aparecer.</p>
         <label class="field-label" for="facing">Câmera preferida</label><select id="facing"><option value="user">Frontal</option><option value="environment">Traseira</option></select>
-        <label class="mirror-option"><input id="detailHands" type="checkbox" checked> Detalhar mãos e dedos</label>
+        <fieldset class="mirror-modules"><legend>Módulos do espelho</legend>
+          <label class="mirror-option"><input id="detailBody" type="checkbox" checked> Corpo</label>
+          <label class="mirror-option"><input id="detailHands" type="checkbox" checked> Detalhar mãos e dedos</label>
+          <label class="mirror-option"><input id="detailFace" type="checkbox" checked> Rosto e contornos</label>
+          <p>Pare a câmera para alterar os módulos. Usar menos módulos reduz o processamento.</p>
+        </fieldset>
+        <label class="mirror-option"><input id="showFaceMeasures" type="checkbox" checked> Mostrar medidas de abertura</label>
         <label class="mirror-option"><input id="handTriangles" type="checkbox" checked> Fechar triângulo com dois dedos</label>
         <button id="startMirror" class="primary wide" type="button">Iniciar espelho</button>
         <button id="stopMirror" class="secondary wide stop-mirror" type="button" disabled>Parar câmera</button>
@@ -90,9 +96,14 @@
         <p id="mirrorStatus" role="status">Câmera desligada.</p>
         <p class="privacy-note">Trocar de modo, ocultar a aba ou sair desta página desliga a câmera. Para voltar, clique em iniciar.</p>
       </aside>
-      <div class="mirror-panel"><div class="mirror-stage"><video id="mirrorVideo" autoplay muted playsinline aria-hidden="true"></video><canvas id="mirrorCanvas" aria-label="Pontos e linhas corporais acompanhando a imagem" hidden></canvas><div id="mirrorPlaceholder"><span aria-hidden="true">✦</span><strong>Seu movimento vira desenho.</strong><p>A câmera só liga quando você iniciar.</p></div></div><p class="mirror-caption">Para explorar os dedos, aproxime a mão da câmera e mantenha-a inteira no quadro. O modelo pode falhar com pouca luz, oclusão ou movimento rápido.</p></div>
+      <div class="mirror-panel"><div class="mirror-stage"><video id="mirrorVideo" autoplay muted playsinline aria-hidden="true"></video><canvas id="mirrorCanvas" aria-label="Pontos e contornos de corpo, mãos e rosto acompanhando a imagem" hidden></canvas><div id="mirrorPlaceholder"><span aria-hidden="true">✦</span><strong>Seu movimento vira desenho.</strong><p>A câmera só liga quando você iniciar.</p></div></div><p class="mirror-caption">Para explorar os dedos ou o rosto, aproxime-se da câmera e mantenha a região inteira no quadro. O modelo pode falhar com pouca luz, oclusão ou movimento rápido.</p><section id="faceMeasures" class="face-measures" aria-labelledby="faceMeasuresTitle">
+          <h3 id="faceMeasuresTitle">Abertura relativa dos olhos e da boca</h3>
+          <dl><div><dt>Boca</dt><dd id="mouthRatio">—</dd></div><div><dt>Olho esquerdo</dt><dd id="leftEyeRatio">—</dd></div><div><dt>Olho direito</dt><dd id="rightEyeRatio">—</dd></div></dl>
+          <p id="faceMeasureStatus">Aguardando um rosto com pontos suficientes no quadro.</p>
+          <p>Medidas geométricas experimentais, afetadas por ângulo e enquadramento. Não indicam emoção, atenção ou diagnóstico.</p>
+        </section></div>
     </section>
-    <section class="mirror-notes"><h2>Uma experiência simples, no seu ritmo.</h2><p>Este espelho desenha pontos de ombros, braços, tronco, mãos e pernas. Com o detalhamento ligado, acompanha 21 pontos por mão e fecha o contorno da palma. A opção de triângulo liga o punho às pontas do indicador e do médio quando a geometria estimada mostra esses dois dedos abertos e anelar e mínimo dobrados. É uma brincadeira geométrica e pode falhar. Não analisa emoções, intenções, atenção ou diagnóstico. A velocidade depende do aparelho; a imagem pode ter atraso.</p><p>Prefere uma imagem parada? <a href="#photo">Escolha Analisar uma foto</a>. Nesse outro modo, a análise envia uma imagem à API somente após seu clique.</p><p><a href="/browser-runtime/0.10.32/NOTICE.txt">Créditos do runtime MediaPipe</a> · <a href="https://github.com/rafaelrmayer/nonverbal-api">Código e documentação</a></p></section>
+    <section class="mirror-notes"><h2>Uma experiência simples, no seu ritmo.</h2><p>Este espelho desenha pontos de ombros, braços, tronco, mãos e pernas. O módulo facial acompanha contornos de olhos, sobrancelhas, lábios e mandíbula, sem reconhecimento de identidade. Mostra até dois contornos faciais; as medidas são exibidas apenas quando há um rosto detectado no frame. Não há histórico ou cadastro de rostos. Com o detalhamento ligado, acompanha 21 pontos por mão e fecha o contorno da palma. A opção de triângulo liga o punho às pontas do indicador e do médio quando a geometria estimada mostra esses dois dedos abertos e anelar e mínimo dobrados. É uma brincadeira geométrica e pode falhar. Não analisa emoções, intenções, atenção ou diagnóstico. A velocidade depende do aparelho; a imagem pode ter atraso.</p><p>Prefere uma imagem parada? <a href="#photo">Escolha Analisar uma foto</a>. Nesse outro modo, a análise envia uma imagem à API somente após seu clique.</p><p><a href="/browser-runtime/0.10.32/NOTICE.txt">Créditos do runtime MediaPipe</a> · <a href="https://github.com/rafaelrmayer/nonverbal-api">Código e documentação</a></p></section>
     </section>
   </main>
   <footer><span>Nonverbal API · Rafael Ricardo Mayer</span><span>Protótipo experimental · foto pela API ou espelho no dispositivo</span></footer>

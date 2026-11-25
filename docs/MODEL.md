@@ -49,3 +49,18 @@ A linha da palma fecha o ciclo 0–5–9–13–17–0. Com **Fechar triângulo 
 Se pontos necessários somem ou a condição deixa de valer, o triângulo some no próximo frame processado. Desmarcar sua opção remove o desenho imediatamente. O detalhamento das mãos pode ser desligado antes de iniciar para reduzir consumo de memória e tempo de inferência. Falha no asset de mãos apresenta erro e orienta tentar sem esse detalhamento, sem envio alternativo ao servidor. O contrato da análise por foto continua apenas corporal.
 
 Testes adicionais cobrem geometria positiva/negativa e rotação, filtragem, encerramento do contorno, renderização/remoção do triângulo com pontos sintéticos e carga real dos dois modelos no worker sobre uma imagem branca. Esses testes não validam detecção de dedos de uma pessoa: após implantar, conferir manualmente com mão inteira próxima à câmera, boa luz, dois dedos abertos, mão aberta e punho fechado.
+
+## Asset facial do espelho local
+
+- Modelo: MediaPipe Face Landmarker, bundle float16, revisão 1.
+- URL: https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
+- SHA-256: `64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff`.
+- Tamanho verificado em 25/11/2026: 3.758.596 bytes.
+- SDK: Tasks Vision Web 0.10.32, VIDEO, CPU, até dois rostos.
+- Referência oficial: https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker
+
+O modelo estima 478 pontos internamente. O worker preserva somente coordenadas 2D válidas dos contornos usados (124 conexões oficiais de olhos, sobrancelhas, lábios e oval facial); descarta os demais pontos, coordenadas z, blendshapes e matrizes de transformação. A saída não é usada para identificação, emoções ou direção do olhar. A detecção, presença e rastreamento usam limiares técnicos 0,6, sem fabricar visibilidade/confiança por ponto. Com dois rostos, o SDK não aplica a suavização reservada ao modo de um rosto, podendo haver oscilação.
+
+O download explícito (`python -m scripts.download_face_model`) verifica o hash antes de publicar o arquivo atomicamente. Servidor e worker verificam novamente. `FACE_MODEL_PATH` pode apontar para o mesmo asset aprovado. O backend Python não carrega esse detector para inferência e o contrato HTTP permanece corporal. As condições do SDK e do modelo devem ser consultadas separadamente nas fontes; a licença do runtime não é apresentada como licença do modelo.
+
+A verificação automatizada carrega o modelo real sobre imagem branca e testa geometria/renderização com pontos sintéticos. Não comprova precisão com câmera física, acurácia de abertura dos olhos/boca, desempenho em celulares ou generalização em pessoas. Essas verificações práticas permanecem necessárias após implantar.
